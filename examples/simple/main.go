@@ -1,7 +1,3 @@
-# Simple RESTful toolkit
-
-Usage:
-```
 package main
 
 import (
@@ -14,6 +10,7 @@ import (
 	"github.com/jimmy-go/srest/views"
 )
 
+// TODO; change path to views.
 var (
 	port  = flag.Int("port", 0, "Listen port")
 	dbf   = flag.String("db", "", "Database connection url.")
@@ -38,14 +35,10 @@ func main() {
 		log.Fatal(err)
 	}
 
-    // declare New Simple REST
 	m := srest.New(nil)
-    // Add rest endpoint, must implement srest.RESTfuler interface
 	m.Use("/v1/api/friends", friends.New(""))
-    // keep waiting until SIGTERM
 	<-m.Run(*port)
 	log.Printf("Closing database connections")
 	dai.Db.Close()
 	log.Printf("Done")
 }
-```
