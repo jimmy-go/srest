@@ -49,3 +49,57 @@ func main() {
 	log.Printf("Done")
 }
 ```
+
+All you need is to declare a RESTfuler interface and for your models Modeler interface.
+
+```
+package friends
+
+// Friend model
+type Friend struct {
+	Name  string `db:"name" json:"name"`
+	Email string `db:"email" json:"email"`
+}
+
+// IsValid satisfies modeler interface.
+func (u *Friend) IsValid() bool {
+	// TODO
+	return true
+}
+
+// API struct
+type API struct{}
+
+// Create func
+func (a *API) Create(w http.ResponseWriter, r *http.Request) {
+	var m *Friend
+	err := srest.Bind(r, &m)
+	if err != nil {
+		srest.JSON(w, err)
+		return
+	}
+    // Logic here
+	srest.JSON(w, &Result{true})
+}
+
+// One func
+func (a *API) One(w http.ResponseWriter, r *http.Request) {
+	srest.JSON(w, &Result{u})
+}
+
+// List func
+func (a *API) List(w http.ResponseWriter, r *http.Request) {
+	srest.JSON(w, &Result{true})
+}
+
+// Update func
+func (a *API) Update(w http.ResponseWriter, r *http.Request) {}
+
+// Delete func
+func (a *API) Delete(w http.ResponseWriter, r *http.Request) {}
+
+// Result generic response
+type Result struct {
+	Response interface{} `json:"result"`
+}
+```

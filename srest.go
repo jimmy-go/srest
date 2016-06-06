@@ -70,6 +70,7 @@ type RESTfuler interface {
 }
 
 // Bind func.
+// TODO; Bind must cast request.Values to v interface, actually is not working
 func Bind(r *http.Request, v interface{}) error {
 	// check model is valid
 	_, ok := v.(Modeler)
