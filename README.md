@@ -9,22 +9,23 @@ import (
 	"log"
 
 	"github.com/jimmy-go/srest"
+	"github.com/jimmy-go/srest/examples/simple/api/friends"
+	"github.com/jimmy-go/srest/examples/simple/controllers/home"
 	"github.com/jimmy-go/srest/examples/simple/dai"
-	"github.com/jimmy-go/srest/examples/simple/friends"
-	"github.com/jimmy-go/srest/views"
 )
 
 var (
-	port  = flag.Int("port", 0, "Listen port")
-	dbf   = flag.String("db", "", "Database connection url.")
-	tmpls = flag.String("templates", "", "Templates files dir.")
+	port   = flag.Int("port", 0, "Listen port")
+	dbf    = flag.String("db", "", "Database connection url.")
+	tmpls  = flag.String("templates", "", "Templates files dir.")
+	static = flag.String("static", "", "Static dir.")
 )
 
 func main() {
 	flag.Parse()
 	log.SetFlags(0)
 	log.Printf("templates dir [%v]", *tmpls)
-	log.Printf("db [%v]", *dbf)
+	log.Printf("static dir [%v]", *static)
 
 	// connect to database
 	err := dai.Configure(&dai.Options{URL: *dbf, Workers: 10, Queue: 10})
@@ -32,17 +33,16 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// load template views only for this project
-	err = views.Configure(*tmpls)
+	// load template views
+	err = srest.LoadViews(*tmpls, true)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-    // declare New Simple REST
 	m := srest.New(nil)
-    // Add rest endpoint, must implement srest.RESTfuler interface
+	m.Static("/static", *static)
 	m.Use("/v1/api/friends", friends.New(""))
-    // keep waiting until SIGTERM
+	m.Use("/home", &home.API{})
 	<-m.Run(*port)
 	log.Printf("Closing database connections")
 	dai.Db.Close()
@@ -50,7 +50,7 @@ func main() {
 }
 ```
 
-All you need is to declare a RESTfuler interface and for your models Modeler interface.
+You need a RESTfuler interface and for your models Modeler interface.
 
 ```
 package friends
@@ -103,3 +103,32 @@ type Result struct {
 	Response interface{} `json:"result"`
 }
 ```
+
+ToDo
+
+* Stress util
+
+
+##### License
+
+The MIT License (MIT)
+
+Copyright (c) 2016 Angel Del Castillo
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
