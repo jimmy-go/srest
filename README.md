@@ -1,0 +1,2 @@
+# srest
+Simple RESTful toolkit
