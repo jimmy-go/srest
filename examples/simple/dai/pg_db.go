@@ -28,8 +28,8 @@ type Options struct {
 	Password string
 }
 
-// Configure func
-func Configure(opts *Options) error {
+// Connect func
+func Connect(opts *Options) error {
 	if inited {
 		return errInited
 	}
@@ -37,7 +37,7 @@ func Configure(opts *Options) error {
 		return errOptionsNil
 	}
 	var err error
-	Db, err = pgwp.Connect("postgres", opts.URL, 10, 10)
+	Db, err = pgwp.Connect("postgres", opts.URL, opts.Workers, opts.Queue)
 	if err != nil {
 		return err
 	}

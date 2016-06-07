@@ -7,6 +7,11 @@ import (
 	"github.com/jimmy-go/srest"
 )
 
+// Home struct
+type Home struct {
+	Phone string `json:"phone"`
+}
+
 // API struct
 type API struct{}
 

@@ -55,11 +55,11 @@ func (m *Multi) Static(path, dir string) {
 
 // Use adds a module.
 func (m *Multi) Use(uri string, n RESTfuler) {
-	m.Mux.HandleFunc(uri, n.Create).Methods("POST")
 	m.Mux.HandleFunc(uri+"/{id}", n.One).Methods("GET")
 	m.Mux.HandleFunc(uri, n.List).Methods("GET")
+	m.Mux.HandleFunc(uri, n.Create).Methods("POST")
 	m.Mux.HandleFunc(uri, n.Update).Methods("PUT")
-	m.Mux.HandleFunc(uri, n.Delete).Methods("DELETE")
+	m.Mux.HandleFunc(uri+"/{id}", n.Delete).Methods("DELETE")
 }
 
 // Run run multi on port.
