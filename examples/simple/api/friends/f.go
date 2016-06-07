@@ -2,7 +2,6 @@ package friends
 
 import (
 	"errors"
-	"log"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -13,14 +12,19 @@ import (
 
 // Friend model
 type Friend struct {
-	Name  string `db:"name" json:"name"`
-	Email string `db:"email" json:"email"`
+	Name  string `db:"name" schema:"name" json:"name"`
+	Email string `db:"email" schema:"email" json:"email"`
 }
 
 // IsValid satisfies modeler interface.
-func (u *Friend) IsValid() bool {
-	// TODO
-	return true
+func (u *Friend) IsValid() error {
+	if len(u.Email) > 20 {
+		return errors.New("email must be less than 20 chars")
+	}
+	if len(u.Name) < 3 {
+		return errors.New("name must be greater than 3 chars")
+	}
+	return nil
 }
 
 // API struct
@@ -34,15 +38,21 @@ func New(s string) *API {
 
 // Create func
 func (a *API) Create(w http.ResponseWriter, r *http.Request) {
-	var m *Friend
-	err := srest.Bind(r, &m)
+	err := r.ParseForm()
 	if err != nil {
-		srest.JSON(w, err)
+		srest.JSON(w, &Result{err.Error()})
+		return
+	}
+
+	var m Friend
+	err = srest.Bind(r.PostForm, &m)
+	if err != nil {
+		srest.JSON(w, &Result{err.Error()})
 		return
 	}
 
 	var id string
-	err = dai.Db.Get(&id, "INSERT INTO users (name, email) VALUES($1, $2) RETURNING id", m)
+	err = dai.Db.Get(&id, "INSERT INTO users (name, email) VALUES($1, $2) RETURNING id", m.Name, m.Email)
 	if err != nil {
 		srest.JSON(w, &E{Error: err.Error()})
 		return
@@ -53,9 +63,7 @@ func (a *API) Create(w http.ResponseWriter, r *http.Request) {
 
 // One func
 func (a *API) One(w http.ResponseWriter, r *http.Request) {
-	p := mux.Vars(r)
-	id := p["id"]
-	log.Printf("id [%v]", id)
+	id := mux.Vars(r)["id"]
 	if id == "1" {
 		err := errors.New("OK BAD")
 		srest.JSON(w, &E{Error: err.Error()})
@@ -74,7 +82,14 @@ func (a *API) One(w http.ResponseWriter, r *http.Request) {
 
 // List func
 func (a *API) List(w http.ResponseWriter, r *http.Request) {
-	srest.JSON(w, &Result{"friends list"})
+	var list []*Friend
+	err := dai.Db.Select(&list, "SELECT name, email FROM users LIMIT 10")
+	if err != nil {
+		srest.JSON(w, &E{Error: err.Error()})
+		return
+	}
+
+	srest.JSON(w, &Result{list})
 }
 
 // Update func

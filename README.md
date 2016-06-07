@@ -53,17 +53,17 @@ func main() {
 You need a RESTfuler interface and for your models Modeler interface.
 
 ```
-package friends
+package users
 
-// Friend model
-type Friend struct {
+// User model
+type User struct {
 	Name  string `db:"name" json:"name"`
 	Email string `db:"email" json:"email"`
 }
 
 // IsValid satisfies modeler interface.
-func (u *Friend) IsValid() bool {
-	// TODO
+func (u *User) IsValid() bool {
+    // do validation here
 	return true
 }
 
@@ -79,29 +79,24 @@ func (a *API) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
     // Logic here
-	srest.JSON(w, &Result{true})
+	srest.JSON(w, "some response")
 }
 
 // One func
 func (a *API) One(w http.ResponseWriter, r *http.Request) {
-	srest.JSON(w, &Result{u})
+	srest.JSON(w, "some response")
 }
 
 // List func
 func (a *API) List(w http.ResponseWriter, r *http.Request) {
-	srest.JSON(w, &Result{true})
+	srest.JSON(w, "some response")
 }
 
-// Update func
+// Update func. We don't use this but is needed for RESTfuler interface
 func (a *API) Update(w http.ResponseWriter, r *http.Request) {}
 
-// Delete func
+// Delete func. We don't use this but is needed for RESTfuler interface
 func (a *API) Delete(w http.ResponseWriter, r *http.Request) {}
-
-// Result generic response
-type Result struct {
-	Response interface{} `json:"result"`
-}
 ```
 
 ToDo

@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -17,13 +18,14 @@ import (
 	"syscall"
 
 	"github.com/gorilla/mux"
+	"github.com/gorilla/schema"
 )
 
 var (
-	errModeler          = errors.New("modeler interface not found")
-	errTemplatesInited  = errors.New("templates already inited")
-	errTemplatesNil     = errors.New("not templates found")
-	errTemplateNotFound = errors.New("template not found")
+	errModeler          = errors.New("srest: modeler interface not found")
+	errTemplatesInited  = errors.New("srest: templates already inited")
+	errTemplatesNil     = errors.New("srest: not templates found")
+	errTemplateNotFound = errors.New("srest: template not found")
 )
 
 // Options struct
@@ -79,25 +81,21 @@ type RESTfuler interface {
 	Delete(w http.ResponseWriter, r *http.Request)
 }
 
-// Bind func.
-// TODO; Bind must cast request.Values to v interface, actually is not working
-func Bind(r *http.Request, v interface{}) error {
+// Bind implements gorilla schema and runs IsValid method from data.
+func Bind(vars url.Values, dst interface{}) error {
+	decoder := schema.NewDecoder()
+	err := decoder.Decode(dst, vars)
+	if err != nil {
+		return err
+	}
 	// check model is valid
-	_, ok := v.(Modeler)
+	mo, ok := dst.(Modeler)
 	if !ok {
 		return errModeler
 	}
-
-	b, err := json.Marshal(r.Form)
-	if err != nil {
-		return err
+	if err := mo.IsValid(); err != nil {
+		return fmt.Errorf("srest: %v", err)
 	}
-
-	err = json.Unmarshal(b, v)
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -190,5 +188,5 @@ func Render(w http.ResponseWriter, view string, v interface{}) error {
 
 // Modeler interface
 type Modeler interface {
-	IsValid() bool
+	IsValid() error
 }
