@@ -112,8 +112,7 @@ var (
 )
 
 // LoadViews func
-// if recursive enabled then scans all subdirs
-func LoadViews(dir string, recursive bool) error {
+func LoadViews(dir string) error {
 	if tmplInited {
 		return errTemplatesInited
 	}
@@ -127,6 +126,7 @@ func LoadViews(dir string, recursive bool) error {
 		tname := strings.Replace(name, dir+"/", "", -1)
 		ext := filepath.Ext(name)
 		if ext != ".html" {
+			// We need to ommit file is not html
 			return nil
 		}
 		b, err := ioutil.ReadFile(name)

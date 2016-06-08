@@ -1,5 +1,13 @@
 # Simple RESTful toolkit
 
+[![License MIT](https://img.shields.io/npm/l/express.svg)](http://opensource.org/licenses/MIT)
+[![Build Status](https://travis-ci.org/jimmy-go/srest.svg?branch=master)](https://travis-ci.org/jimmy-go/srest)
+[![Go Report Card](https://goreportcard.com/badge/github.com/jimmy-go/srest)](https://goreportcard.com/report/github.com/jimmy-go/srest)
+[![GoDoc](http://godoc.org/github.com/jimmy-go/srest?status.png)](http://godoc.org/github.com/jimmy-go/srest)
+[![Coverage Status](https://coveralls.io/repos/github/jimmy-go/srest/badge.svg?branch=master&1)](https://coveralls.io/github/jimmy-go/srest?branch=master)
+
+----
+
 Usage:
 ```
 package main
@@ -34,7 +42,7 @@ func main() {
 	}
 
 	// load template views
-	err = srest.LoadViews(*tmpls, true)
+	err = srest.LoadViews(*tmpls)
 	if err != nil {
 		log.Fatal(err)
 	}

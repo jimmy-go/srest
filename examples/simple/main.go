@@ -39,7 +39,7 @@ func main() {
 	}
 
 	// load template views only for this project
-	err = srest.LoadViews(*tmpls, true)
+	err = srest.LoadViews(*tmpls)
 	if err != nil {
 		log.Fatal(err)
 	}
