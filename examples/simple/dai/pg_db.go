@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/jimmy-go/pgwp"
+	// import driver
 	_ "github.com/lib/pq"
 )
 

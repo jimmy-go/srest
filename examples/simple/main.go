@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"log"
+	"net/http"
 	"runtime"
 
 	"github.com/jimmy-go/srest"
@@ -46,10 +47,26 @@ func main() {
 
 	m := srest.New(nil)
 	m.Static("/static", *static)
-	m.Use("/v1/api/friends", friends.New(""))
-	m.Use("/home", &home.API{})
+	m.Use("/v1/api//friends//", friends.New(""), custom(nil), custom2(nil))
+	m.Use("//home", &home.API{})
 	<-m.Run(*port)
 	log.Printf("Closing database connections")
 	dai.Db.Close()
 	log.Printf("Done")
+}
+
+func custom(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("custom: mw [%v]", r.URL)
+
+		h.ServeHTTP(w, r)
+	})
+}
+
+func custom2(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("custom 2: mw [%v]", r.URL)
+
+		h.ServeHTTP(w, r)
+	})
 }

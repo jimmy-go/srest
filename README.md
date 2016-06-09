@@ -8,6 +8,11 @@
 
 ----
 
+Installation:
+```
+go get github.com/jimmy-go/srest
+```
+
 Usage:
 ```
 package main
@@ -61,6 +66,21 @@ func main() {
 You need a RESTfuler interface and for your models Modeler interface.
 
 ```
+type RESTfuler interface {
+	Create(w http.ResponseWriter, r *http.Request)
+	One(w http.ResponseWriter, r *http.Request)
+	List(w http.ResponseWriter, r *http.Request)
+	Update(w http.ResponseWriter, r *http.Request)
+	Delete(w http.ResponseWriter, r *http.Request)
+}
+
+type Modeler interface {
+	IsValid() error
+}
+```
+
+Example:
+```
 package users
 
 // User model
@@ -109,7 +129,7 @@ func (a *API) Delete(w http.ResponseWriter, r *http.Request) {}
 
 ToDo
 
-* Stress util
+* Middleware for subrouting
 
 
 ##### License

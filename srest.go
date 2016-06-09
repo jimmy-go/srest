@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -48,18 +49,31 @@ func New(opts *Options) *Multi {
 	return m
 }
 
-// Static func wrapper for mux.PathPrefix(path).Handler(http.StripPrefix(path, http.FileServer(http.Dir(dir))))
-func (m *Multi) Static(path, dir string) {
-	m.Mux.PathPrefix(path).Handler(http.StripPrefix(path, http.FileServer(http.Dir(dir))))
+// Static func wrapper for
+// mux.PathPrefix(uri).Handler(http.StripPrefix(uri, http.FileServer(http.Dir(dir))))
+func (m *Multi) Static(uri, dir string) {
+	m.Mux.PathPrefix(uri).Handler(http.StripPrefix(uri, http.FileServer(http.Dir(dir))))
 }
 
-// Use adds a module.
-func (m *Multi) Use(uri string, n RESTfuler) {
-	m.Mux.HandleFunc(uri+"/{id}", n.One).Methods("GET")
-	m.Mux.HandleFunc(uri, n.List).Methods("GET")
-	m.Mux.HandleFunc(uri, n.Create).Methods("POST")
-	m.Mux.HandleFunc(uri, n.Update).Methods("PUT")
-	m.Mux.HandleFunc(uri+"/{id}", n.Delete).Methods("DELETE")
+// Use adds endpoints RESTful
+func (m *Multi) Use(uri string, n RESTfuler, mws ...http.Handler) {
+	uri = path.Clean(uri)
+	log.Printf("uri clean [%v]", uri)
+
+	nmws := func(met http.HandlerFunc) http.Handler {
+		return met
+	}
+	m.Mux.Handle(uri+"/{id}", nmws(n.One)).Methods("GET")
+	m.Mux.Handle(uri, nmws(n.List)).Methods("GET")
+	m.Mux.Handle(uri, nmws(n.Create)).Methods("POST")
+	m.Mux.Handle(uri, nmws(n.Update)).Methods("PUT")
+	m.Mux.Handle(uri+"/{id}", nmws(n.Delete)).Methods("DELETE")
+
+	//	m.Mux.HandleFunc(uri+"/{id}", n.One).Methods("GET")
+	//	m.Mux.HandleFunc(uri, n.List).Methods("GET")
+	//	m.Mux.HandleFunc(uri, n.Create).Methods("POST")
+	//	m.Mux.HandleFunc(uri, n.Update).Methods("PUT")
+	//	m.Mux.HandleFunc(uri+"/{id}", n.Delete).Methods("DELETE")
 }
 
 // Run run multi on port.
@@ -81,10 +95,13 @@ type RESTfuler interface {
 	Delete(w http.ResponseWriter, r *http.Request)
 }
 
+var (
+	schDecoder = schema.NewDecoder()
+)
+
 // Bind implements gorilla schema and runs IsValid method from data.
 func Bind(vars url.Values, dst interface{}) error {
-	decoder := schema.NewDecoder()
-	err := decoder.Decode(dst, vars)
+	err := schDecoder.Decode(dst, vars)
 	if err != nil {
 		return err
 	}

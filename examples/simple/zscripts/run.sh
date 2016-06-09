@@ -9,4 +9,4 @@ gcvis $GOBIN/simplerest \
 -static=$(pwd)/static \
 -workers=100 \
 -queue=100 \
--db="host=192.168.2.10 dbname=lostsdb port=5432 user=postgres password=xx123456"
+-db="host=192.168.2.11 dbname=lostsdb port=5432 user=postgres password=xx123456"
