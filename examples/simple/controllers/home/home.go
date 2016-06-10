@@ -1,9 +1,9 @@
 package home
 
 import (
+	"log"
 	"net/http"
 
-	"github.com/gorilla/mux"
 	"github.com/jimmy-go/srest"
 )
 
@@ -20,7 +20,8 @@ func (a *API) Create(w http.ResponseWriter, r *http.Request) {}
 
 // One func
 func (a *API) One(w http.ResponseWriter, r *http.Request) {
-	id := mux.Vars(r)["id"]
+	id := r.URL.Query().Get(":id")
+	log.Printf("Home : One : id [%v]", id)
 	if id == "a" {
 		v := map[string]interface{}{"Title": "One A", "Message": "hola soy template"}
 		srest.Render(w, "home/show.html", v)

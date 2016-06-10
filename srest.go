@@ -18,7 +18,7 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/gorilla/mux"
+	"github.com/bmizerany/pat"
 	"github.com/gorilla/schema"
 )
 
@@ -38,48 +38,54 @@ type Options struct {
 
 // Multi struct.
 type Multi struct {
-	Mux *mux.Router
+	Mux *pat.PatternServeMux
 }
 
 // New returns a new server.
 func New(opts *Options) *Multi {
 	m := &Multi{
-		Mux: mux.NewRouter(),
+		Mux: pat.New(),
 	}
 	return m
 }
 
 // Static func wrapper for
-// mux.PathPrefix(uri).Handler(http.StripPrefix(uri, http.FileServer(http.Dir(dir))))
 func (m *Multi) Static(uri, dir string) {
-	m.Mux.PathPrefix(uri).Handler(http.StripPrefix(uri, http.FileServer(http.Dir(dir))))
+	uri = path.Clean(uri) + "/"
+	m.Mux.Get(uri, http.StripPrefix(uri, http.FileServer(http.Dir(dir))))
 }
 
 // Use adds endpoints RESTful
 func (m *Multi) Use(uri string, n RESTfuler, mws ...http.Handler) {
 	uri = path.Clean(uri)
-	log.Printf("uri clean [%v]", uri)
-
-	nmws := func(met http.HandlerFunc) http.Handler {
-		return met
+	if len(mws) < 1 {
+		m.Mux.Get(uri+"/:id", http.HandlerFunc(n.One))
+		m.Mux.Get(uri, http.HandlerFunc(n.List))
+		m.Mux.Post(uri, http.HandlerFunc(n.Create))
+		m.Mux.Put(uri, http.HandlerFunc(n.Update))
+		m.Mux.Del(uri+"/:id", http.HandlerFunc(n.Delete))
+		return
 	}
-	m.Mux.Handle(uri+"/{id}", nmws(n.One)).Methods("GET")
-	m.Mux.Handle(uri, nmws(n.List)).Methods("GET")
-	m.Mux.Handle(uri, nmws(n.Create)).Methods("POST")
-	m.Mux.Handle(uri, nmws(n.Update)).Methods("PUT")
-	m.Mux.Handle(uri+"/{id}", nmws(n.Delete)).Methods("DELETE")
 
-	//	m.Mux.HandleFunc(uri+"/{id}", n.One).Methods("GET")
-	//	m.Mux.HandleFunc(uri, n.List).Methods("GET")
-	//	m.Mux.HandleFunc(uri, n.Create).Methods("POST")
-	//	m.Mux.HandleFunc(uri, n.Update).Methods("PUT")
-	//	m.Mux.HandleFunc(uri+"/{id}", n.Delete).Methods("DELETE")
+	hfs := func(fh http.HandlerFunc) http.Handler {
+		var cops []http.Handler
+		cops = append(cops, mws...)
+		cops = append(cops, http.HandlerFunc(fh))
+		return mergeHandlers(cops...)
+	}
+
+	m.Mux.Get(uri+"/:id", hfs(n.One))
+	m.Mux.Get(uri, hfs(n.List))
+	m.Mux.Post(uri, hfs(n.Create))
+	m.Mux.Put(uri, hfs(n.Update))
+	m.Mux.Del(uri+"/:id", hfs(n.Delete))
 }
 
 // Run run multi on port.
 func (m *Multi) Run(port int) chan os.Signal {
 	log.Printf("listening port [%v]", port)
-	go http.ListenAndServe(fmt.Sprintf(":%v", port), m.Mux)
+	http.Handle("/", m.Mux)
+	go http.ListenAndServe(fmt.Sprintf(":%v", port), nil)
 
 	c := make(chan os.Signal)
 	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
@@ -163,8 +169,6 @@ func LoadViews(dir string) error {
 		return err
 	}
 
-	// log.Printf("all templates [%s]", string(data))
-
 	for _, k := range files {
 		// template parsing
 		templates[k] = template.Must(template.New(k).Parse(string(data)))
@@ -206,4 +210,18 @@ func Render(w http.ResponseWriter, view string, v interface{}) error {
 // Modeler interface
 type Modeler interface {
 	IsValid() error
+}
+
+func mergeHandlers(handlers ...http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		for _, handler := range handlers {
+			// if http.Error was called in middleware we do a check and skip execution.
+			xcto := w.Header().Get("X-Content-Type-Options")
+			if xcto == "nosniff" {
+				return
+			}
+
+			handler.ServeHTTP(w, r)
+		}
+	})
 }

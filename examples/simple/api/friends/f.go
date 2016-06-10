@@ -4,8 +4,6 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/gorilla/mux"
-
 	"github.com/jimmy-go/srest"
 	"github.com/jimmy-go/srest/examples/simple/dai"
 )
@@ -32,7 +30,7 @@ type API struct{}
 
 // New inits configuration
 // copy session or reuse database connection, logic belongs to user.
-func New(s string) *API {
+func New() *API {
 	return &API{}
 }
 
@@ -63,7 +61,7 @@ func (a *API) Create(w http.ResponseWriter, r *http.Request) {
 
 // One func
 func (a *API) One(w http.ResponseWriter, r *http.Request) {
-	id := mux.Vars(r)["id"]
+	id := r.URL.Query().Get(":id")
 	if id == "1" {
 		err := errors.New("OK BAD")
 		srest.JSON(w, &E{Error: err.Error()})

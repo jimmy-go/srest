@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"runtime"
+	"time"
 
 	"github.com/jimmy-go/srest"
 	"github.com/jimmy-go/srest/examples/simple/api/friends"
@@ -34,7 +35,9 @@ func main() {
 		Workers: *workers,
 		Queue:   *queue,
 	}
+	now := time.Now()
 	err := dai.Connect(conf)
+	log.Printf("Database connection time: [%s]", time.Since(now))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -47,26 +50,29 @@ func main() {
 
 	m := srest.New(nil)
 	m.Static("/static", *static)
-	m.Use("/v1/api//friends//", friends.New(""), custom(nil), custom2(nil))
-	m.Use("//home", &home.API{})
+	m.Use("/v1/api/friends", friends.New())
+	m.Use("/v1/api/mid", friends.New(), mwOne(), mwTwo())
+	m.Use("/home", &home.API{})
 	<-m.Run(*port)
 	log.Printf("Closing database connections")
 	dai.Db.Close()
 	log.Printf("Done")
 }
 
-func custom(h http.Handler) http.Handler {
+func mwOne() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("custom: mw [%v]", r.URL)
-
-		h.ServeHTTP(w, r)
+		log.Printf("mwOne: [%v]", r.URL)
 	})
 }
 
-func custom2(h http.Handler) http.Handler {
+func mwTwo() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("custom 2: mw [%v]", r.URL)
-
-		h.ServeHTTP(w, r)
+		log.Printf("mwTwo: [%v]", r.URL)
+		ff := r.URL.Query().Get("fail")
+		if ff == "fail" {
+			log.Printf("mwTwo: verification err")
+			http.Error(w, "middleware Two says: bad request", http.StatusUnauthorized)
+			return
+		}
 	})
 }
