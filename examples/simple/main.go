@@ -51,7 +51,7 @@ func main() {
 	m := srest.New(nil)
 	m.Static("/static", *static)
 	m.Use("/v1/api/friends", friends.New())
-	m.Use("/v1/api/mid", friends.New(), mwOne(), mwTwo())
+	m.Use("/v1/api/mid", friends.New(), mwOne, mwTwo)
 	m.Use("/home", &home.API{})
 	<-m.Run(*port)
 	log.Printf("Closing database connections")
@@ -59,20 +59,24 @@ func main() {
 	log.Printf("Done")
 }
 
-func mwOne() http.Handler {
+func mwOne(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("mwOne: [%v]", r.URL)
+		prev := r.URL.Query().Get("stop")
+		if prev == "one" {
+			w.Write([]byte("skipped from one"))
+			return
+		}
+		h.ServeHTTP(w, r)
 	})
 }
 
-func mwTwo() http.Handler {
+func mwTwo(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("mwTwo: [%v]", r.URL)
-		ff := r.URL.Query().Get("fail")
-		if ff == "fail" {
-			log.Printf("mwTwo: verification err")
-			http.Error(w, "middleware Two says: bad request", http.StatusUnauthorized)
+		prev := r.URL.Query().Get("stop")
+		if prev == "two" {
+			w.Write([]byte("skipped from two"))
 			return
 		}
+		h.ServeHTTP(w, r)
 	})
 }

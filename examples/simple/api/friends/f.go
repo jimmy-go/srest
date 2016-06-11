@@ -81,7 +81,7 @@ func (a *API) One(w http.ResponseWriter, r *http.Request) {
 // List func
 func (a *API) List(w http.ResponseWriter, r *http.Request) {
 	var list []*Friend
-	err := dai.Db.Select(&list, "SELECT name, email FROM users LIMIT 10")
+	err := dai.Db.Select(&list, "SELECT name, email FROM users LIMIT 3")
 	if err != nil {
 		srest.JSON(w, &E{Error: err.Error()})
 		return

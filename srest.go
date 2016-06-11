@@ -56,7 +56,7 @@ func (m *Multi) Static(uri, dir string) {
 }
 
 // Use adds endpoints RESTful
-func (m *Multi) Use(uri string, n RESTfuler, mws ...http.Handler) {
+func (m *Multi) Use(uri string, n RESTfuler, mws ...func(http.Handler) http.Handler) {
 	uri = path.Clean(uri)
 	if len(mws) < 1 {
 		m.Mux.Get(uri+"/:id", http.HandlerFunc(n.One))
@@ -68,10 +68,13 @@ func (m *Multi) Use(uri string, n RESTfuler, mws ...http.Handler) {
 	}
 
 	hfs := func(fh http.HandlerFunc) http.Handler {
-		var cops []http.Handler
-		cops = append(cops, mws...)
-		cops = append(cops, http.HandlerFunc(fh))
-		return mergeHandlers(cops...)
+		var cs []func(http.Handler) http.Handler
+		cs = append(cs, mws...)
+		var h http.Handler = http.HandlerFunc(fh)
+		for i := range cs {
+			h = cs[len(cs)-1-i](h)
+		}
+		return h
 	}
 
 	m.Mux.Get(uri+"/:id", hfs(n.One))
@@ -210,18 +213,4 @@ func Render(w http.ResponseWriter, view string, v interface{}) error {
 // Modeler interface
 type Modeler interface {
 	IsValid() error
-}
-
-func mergeHandlers(handlers ...http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		for _, handler := range handlers {
-			// if http.Error was called in middleware we do a check and skip execution.
-			xcto := w.Header().Get("X-Content-Type-Options")
-			if xcto == "nosniff" {
-				return
-			}
-
-			handler.ServeHTTP(w, r)
-		}
-	})
 }
