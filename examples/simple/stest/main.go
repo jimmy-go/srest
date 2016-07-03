@@ -24,7 +24,7 @@ func main() {
 	log.Printf("workers [%v]", *users)
 	s := stress.New(*host, *users, 60*time.Second)
 	s.HitStatic("/static", *static)
-	s.Hit("/v1/api/friends", friends.New(""), &friends.Friend{})
+	s.Hit("/v1/api/friends", friends.New(), &friends.Friend{})
 	s.Hit("/home", &home.API{}, &home.Home{})
 	<-s.Run()
 }
