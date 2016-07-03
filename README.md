@@ -8,6 +8,8 @@
 
 ----
 
+#### current version is under 1.0 so some breaking changes can be allowed.
+
 Installation:
 ```
 go get github.com/jimmy-go/srest
@@ -127,10 +129,15 @@ func (a *API) Update(w http.ResponseWriter, r *http.Request) {}
 func (a *API) Delete(w http.ResponseWriter, r *http.Request) {}
 ```
 
-ToDo
+###### breaking changes:
 
-* Middleware for subrouting
+* srest.Static("/static", "mydir") for srest.Get("/static", srest.Static("/static", "mydir"))
 
+#### ToDo:
+
+* Benchmark for Render. If needed implement Render with templates pool.
+* Change example database by sqlite.
+* Add support for status 503.
 
 ##### License
 

@@ -1,3 +1,36 @@
+// Package srest contains utilyties for sites creation and web services.
+/*
+	RESTfuler interface:
+		Create(w http.ResponseWriter, r *http.Request)
+		One(w http.ResponseWriter, r *http.Request)
+		List(w http.ResponseWriter, r *http.Request)
+		Update(w http.ResponseWriter, r *http.Request)
+		Delete(w http.ResponseWriter, r *http.Request)
+
+	Modeler interface:
+		IsValid() error
+*/
+// The MIT License (MIT)
+//
+// Copyright (c) 2016 Angel Del Castillo
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
 package srest
 
 import (
@@ -23,11 +56,31 @@ import (
 )
 
 var (
+	debug        bool
+	templatesDir string
+
+	// DefaultFuncMap can be used with LoadViews for common template tasks like:
+	//
+	// Cap: capitalize
+	DefaultFuncMap = deffuncmap()
+
 	errModeler          = errors.New("srest: modeler interface not found")
 	errTemplatesInited  = errors.New("srest: templates already inited")
 	errTemplatesNil     = errors.New("srest: not templates found")
 	errTemplateNotFound = errors.New("srest: template not found")
 )
+
+func deffuncmap() template.FuncMap {
+	// TODO; add common functions for templates
+	return template.FuncMap{
+		"cap": func(s string) string {
+			if len(s) < 1 {
+				return s
+			}
+			return strings.ToUpper(s[:1]) + s[1:]
+		},
+	}
+}
 
 // Options struct
 type Options struct {
@@ -49,10 +102,27 @@ func New(opts *Options) *Multi {
 	return m
 }
 
-// Static func wrapper for
-func (m *Multi) Static(uri, dir string) {
-	uri = path.Clean(uri) + "/"
-	m.Mux.Get(uri, http.StripPrefix(uri, http.FileServer(http.Dir(dir))))
+// Static replaces old Multi method.
+//
+// Usage with Get("/example", Static("/example", "mydir"))
+func Static(uri, dir string) http.Handler {
+	return http.StripPrefix(uri, http.FileServer(http.Dir(dir)))
+}
+
+// Get conveniense.
+func (m *Multi) Get(uri string, hf http.Handler, mws ...func(http.Handler) http.Handler) {
+	// TODO; move hfs outside
+	hfs := func(fh http.Handler) http.Handler {
+		var cs []func(http.Handler) http.Handler
+		cs = append(cs, mws...)
+		var h http.Handler
+		h = fh
+		for i := range cs {
+			h = cs[len(cs)-1-i](h)
+		}
+		return h
+	}
+	m.Mux.Get(uri, hfs(hf))
 }
 
 // Use adds endpoints RESTful
@@ -67,6 +137,7 @@ func (m *Multi) Use(uri string, n RESTfuler, mws ...func(http.Handler) http.Hand
 		return
 	}
 
+	// TODO; move hfs outside
 	hfs := func(fh http.HandlerFunc) http.Handler {
 		var cs []func(http.Handler) http.Handler
 		cs = append(cs, mws...)
@@ -86,13 +157,17 @@ func (m *Multi) Use(uri string, n RESTfuler, mws ...func(http.Handler) http.Hand
 
 // Run run multi on port.
 func (m *Multi) Run(port int) chan os.Signal {
-	log.Printf("listening port [%v]", port)
 	http.Handle("/", m.Mux)
-	go http.ListenAndServe(fmt.Sprintf(":%v", port), nil)
+	go log.Fatal(http.ListenAndServe(fmt.Sprintf(":%v", port), nil))
 
 	c := make(chan os.Signal)
 	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
 	return c
+}
+
+// Debug enables templates reload with every petition.
+func (m *Multi) Debug(ok bool) {
+	debug = ok
 }
 
 // RESTfuler interface
@@ -138,12 +213,15 @@ var (
 )
 
 // LoadViews func
-func LoadViews(dir string) error {
+//
+// funcMap overwrites DefaultFuncMap
+func LoadViews(dir string, funcMap template.FuncMap) error {
 	if tmplInited {
 		return errTemplatesInited
 	}
 
 	dir = filepath.Clean(dir)
+	templatesDir = dir
 
 	var files []string
 	var data []byte
@@ -168,13 +246,13 @@ func LoadViews(dir string) error {
 		return nil
 	})
 	if err != nil {
-		log.Printf("LoadViews : err [%s]", err)
 		return err
 	}
 
+	DefaultFuncMap = funcMap
 	for _, k := range files {
 		// template parsing
-		templates[k] = template.Must(template.New(k).Parse(string(data)))
+		templates[k] = template.Must(template.New(k).Funcs(funcMap).Parse(string(data)))
 	}
 
 	tmplInited = true
@@ -183,8 +261,21 @@ func LoadViews(dir string) error {
 
 // Render writes a template to http response.
 func Render(w http.ResponseWriter, view string, v interface{}) error {
+	if debug {
+		// clean templates
+		for k := range templates {
+			delete(templates, k)
+		}
+		tmplInited = false
+		// load templates again
+		// this generates a race condition. TODO; check later if a really trouble
+		// on debug mode, this is not expected to be turned on to production.
+		err := LoadViews(templatesDir, DefaultFuncMap)
+		if err != nil {
+			return err
+		}
+	}
 	if !tmplInited {
-		log.Printf("Render : err [%s]", errTemplatesNil)
 		return errTemplatesNil
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -199,12 +290,10 @@ func Render(w http.ResponseWriter, view string, v interface{}) error {
 	}
 	err := t.ExecuteTemplate(&buf, view, v)
 	if err != nil {
-		log.Printf("Render : err [%s]", err)
 		return err
 	}
 	_, err = buf.WriteTo(w)
 	if err != nil {
-		log.Printf("Render : err [%s]", err)
 		return err
 	}
 	return nil

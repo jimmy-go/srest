@@ -7,9 +7,9 @@ fi
 
 if [ "$1" == "normal" ]; then
     go test -cover -coverprofile=coverage.out
-    go tool cover -html=coverage.out
 fi
 
 if [ "$1" == "html" ]; then
+    go test -cover -coverprofile=coverage.out
     go tool cover -html=coverage.out
 fi
