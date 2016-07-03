@@ -4,11 +4,19 @@
 [![Build Status](https://travis-ci.org/jimmy-go/srest.svg?branch=master)](https://travis-ci.org/jimmy-go/srest)
 [![Go Report Card](https://goreportcard.com/badge/github.com/jimmy-go/srest)](https://goreportcard.com/report/github.com/jimmy-go/srest)
 [![GoDoc](http://godoc.org/github.com/jimmy-go/srest?status.png)](http://godoc.org/github.com/jimmy-go/srest)
-[![Coverage Status](https://coveralls.io/repos/github/jimmy-go/srest/badge.svg?branch=master&1)](https://coveralls.io/github/jimmy-go/srest?branch=master)
+[![Coverage Status](https://coveralls.io/repos/github/jimmy-go/srest/badge.svg?branch=master)](https://coveralls.io/github/jimmy-go/srest?branch=master)
+
+srest goal it's help you building sites and RESTful APIs servers with clear
+code and fast execution, without enslave you to complicated frameworks rules.
+Uses a thin layer over another already useful toolkits:
+
+[bmizerany/pat](https://github.com/bmizerany/pat)
+
+[gorilla/schema](https://github.com/gorilla/schema)
 
 ----
 
-#### current version is under 1.0 so some breaking changes can be allowed.
+Current version is under 1.0 so some breaking changes can be allowed.
 
 Installation:
 ```
@@ -17,52 +25,12 @@ go get github.com/jimmy-go/srest
 
 Usage:
 ```
-package main
-
-import (
-	"flag"
-	"log"
-
-	"github.com/jimmy-go/srest"
-	"github.com/jimmy-go/srest/examples/simple/api/friends"
-	"github.com/jimmy-go/srest/examples/simple/controllers/home"
-	"github.com/jimmy-go/srest/examples/simple/dai"
-)
-
-var (
-	port   = flag.Int("port", 0, "Listen port")
-	dbf    = flag.String("db", "", "Database connection url.")
-	tmpls  = flag.String("templates", "", "Templates files dir.")
-	static = flag.String("static", "", "Static dir.")
-)
-
-func main() {
-	flag.Parse()
-	log.SetFlags(0)
-	log.Printf("templates dir [%v]", *tmpls)
-	log.Printf("static dir [%v]", *static)
-
-	// connect to database
-	err := dai.Configure(&dai.Options{URL: *dbf, Workers: 10, Queue: 10})
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// load template views
-	err = srest.LoadViews(*tmpls)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	m := srest.New(nil)
-	m.Static("/static", *static)
-	m.Use("/v1/api/friends", friends.New(""))
-	m.Use("/home", &home.API{})
-	<-m.Run(*port)
-	log.Printf("Closing database connections")
-	dai.Db.Close()
-	log.Printf("Done")
-}
+    m := srest.New(nil) // init a new srest without TLS configuration.
+	m.Get("/static", srest.Static("/static", *static)) // declare a static dir.
+    m.Use("/v1/api/friends", friends.New()) // satisfies RESTfuler. This generates GET GET/:id POST PUT and DELETE/:id endpoints
+    m.Use("/home", &home.API{}) // satisfies RESTfuler. This generates GET GET/:id POST PUT and DELETE/:id endpoints
+    m.Get("/custom", myHTTPHandlerFunc) // you can access all pat methods directly too.
+    <-m.Run(55555) // Run start a server on port 55555, if TLS support is needed take a look on srest.Options.
 ```
 
 You need a RESTfuler interface and for your models Modeler interface.
@@ -81,26 +49,30 @@ type Modeler interface {
 }
 ```
 
+You can pass middlewares too:
+```
+    m.Use("/v1/api/friends", friends.New(), Mid1, Mid2, Mid3 )
+    m.Get("/customhandler", func(w http.ResponseWriter,r *http.Request){}, Mid1, Mid2, Mid3)
+```
+
 Example:
 ```
 package users
 
-// User model
+// User model implements Modeler interface
 type User struct {
 	Name  string `db:"name" json:"name"`
 	Email string `db:"email" json:"email"`
 }
 
-// IsValid satisfies modeler interface.
 func (u *User) IsValid() bool {
     // do validation here
 	return true
 }
 
-// API struct
+// API struct implements RESTfuler interface
 type API struct{}
 
-// Create func
 func (a *API) Create(w http.ResponseWriter, r *http.Request) {
 	var m *Friend
 	err := srest.Bind(r, &m)
@@ -112,32 +84,32 @@ func (a *API) Create(w http.ResponseWriter, r *http.Request) {
 	srest.JSON(w, "some response")
 }
 
-// One func
 func (a *API) One(w http.ResponseWriter, r *http.Request) {
 	srest.JSON(w, "some response")
 }
 
-// List func
 func (a *API) List(w http.ResponseWriter, r *http.Request) {
-	srest.JSON(w, "some response")
+	srest.JSON(w, "some list")
 }
 
-// Update func. We don't use this but is needed for RESTfuler interface
+// We don't use this but is needed for RESTfuler interface
 func (a *API) Update(w http.ResponseWriter, r *http.Request) {}
 
-// Delete func. We don't use this but is needed for RESTfuler interface
+// We don't use this but is needed for RESTfuler interface
 func (a *API) Delete(w http.ResponseWriter, r *http.Request) {}
 ```
 
 ###### breaking changes:
 
-* srest.Static("/static", "mydir") for srest.Get("/static", srest.Static("/static", "mydir"))
+* replace ```srest.Static("/public", "mydir")``` for ```srest.Get("/public/", srest.Static("/public/", "mydir"))```
 
 #### ToDo:
 
 * Benchmark for Render. If needed implement Render with templates pool.
-* Change example database by sqlite.
 * Add support for status 503.
+* Change example database to sqlite.
+* Complete module stress and example stress.
+* You can make stress tests using the package srest/stress with only a Modeler interface (described below).
 
 ##### License
 

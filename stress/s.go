@@ -36,9 +36,6 @@ import (
 	"sync"
 	"syscall"
 	"time"
-
-	"github.com/jimmy-go/jobq"
-	"github.com/jimmy-go/srest"
 )
 
 // Target struct
@@ -50,49 +47,53 @@ type Target struct {
 
 // Attacker struct.
 type Attacker struct {
-	pool     *jobq.Dispatcher
-	host     string
-	clientsc chan *http.Client
-	targets  []*Target
-	Done     chan struct{}
+	pool    chan *http.Client
+	host    string
+	targets []*Target
+	Done    chan struct{}
 }
 
 // New returns a new attacker.
-func New(host string, users int, d time.Duration) *Attacker {
-	// init worker pool
-	jq, err := jobq.New(users, users)
-	if err != nil {
-		panic(err)
-	}
-
+func New(host string, users int, duration time.Duration) *Attacker {
 	// populate http.Clients pool
-	cclients := make(chan *http.Client, users)
+	ccs := make(chan *http.Client, users)
 	for i := 0; i < users; i++ {
 		cl := &http.Client{
 			Timeout: 60 * time.Second,
 		}
-		cclients <- cl
+		ccs <- cl
 	}
 
 	a := &Attacker{
-		pool:     jq,
-		clientsc: cclients,
-		host:     host,
-		Done:     make(chan struct{}, 1),
+		pool: ccs,
+		host: host,
+		Done: make(chan struct{}, 1),
 	}
 	return a
 }
 
 // Hit attacks endpoint.
-func (h *Attacker) Hit(path string, API srest.RESTfuler, model interface{}) {
+func (h *Attacker) Hit(path string, model interface{}) {
+	h.targets = append(h.targets, &Target{
+		URL:    h.host + path + "/:id",
+		Method: "GET",
+	})
 	h.targets = append(h.targets, &Target{
 		URL:    h.host + path,
-		Method: "TODO",
+		Method: "GET",
 	})
-}
-
-// HitStatic attacks endpoint.
-func (h *Attacker) HitStatic(path, dir string) {
+	h.targets = append(h.targets, &Target{
+		URL:    h.host + path,
+		Method: "POST",
+	})
+	h.targets = append(h.targets, &Target{
+		URL:    h.host + path,
+		Method: "PUT",
+	})
+	h.targets = append(h.targets, &Target{
+		URL:    h.host + path + "/:id",
+		Method: "DELETE",
+	})
 }
 
 // Run func
@@ -103,20 +104,15 @@ func (h *Attacker) Run() chan os.Signal {
 			case <-h.Done:
 				log.Printf("Exit")
 				return
-			// case <-time.After(5 * time.Millisecond):
+				// case <-time.After(5 * time.Millisecond):
 			default:
-				h.pool.Add(func() error {
-					client := <-h.clientsc
-					uri := h.targets[0].URL
-					_, err := client.Get(uri)
-					h.clientsc <- client
-					if err != nil {
-						logError(err)
-						return err
-					}
-					// log.Printf("Hit : Status [%s]", res.Status)
-					return nil
-				})
+				client := <-h.pool
+				uri := h.targets[0].URL
+				_, err := client.Get(uri)
+				h.pool <- client
+				if err != nil {
+					logError(err)
+				}
 			}
 		}
 	}()

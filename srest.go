@@ -1,14 +1,14 @@
 // Package srest contains utilyties for sites creation and web services.
 /*
-	RESTfuler interface:
-		Create(w http.ResponseWriter, r *http.Request)
-		One(w http.ResponseWriter, r *http.Request)
-		List(w http.ResponseWriter, r *http.Request)
-		Update(w http.ResponseWriter, r *http.Request)
-		Delete(w http.ResponseWriter, r *http.Request)
+RESTfuler interface:
+Create(w http.ResponseWriter, r *http.Request)
+One(w http.ResponseWriter, r *http.Request)
+List(w http.ResponseWriter, r *http.Request)
+Update(w http.ResponseWriter, r *http.Request)
+Delete(w http.ResponseWriter, r *http.Request)
 
-	Modeler interface:
-		IsValid() error
+Modeler interface:
+IsValid() error
 */
 // The MIT License (MIT)
 //
@@ -102,21 +102,26 @@ func New(opts *Options) *Multi {
 	return m
 }
 
-// Static replaces old Multi method.
+// Static replaces old Static func convenience method.
 //
-// Usage with Get("/example", Static("/example", "mydir"))
+// Usage with Get("/public/", Static("/public/", "mydir")) slashes are important.
 func Static(uri, dir string) http.Handler {
-	return http.StripPrefix(uri, http.FileServer(http.Dir(dir)))
+	return http.StripPrefix(path.Clean(uri), http.FileServer(http.Dir(dir)))
 }
 
 // Get conveniense.
 func (m *Multi) Get(uri string, hf http.Handler, mws ...func(http.Handler) http.Handler) {
+	if len(mws) < 1 {
+		m.Mux.Get(uri, hf)
+		return
+	}
+
 	// TODO; move hfs outside
 	hfs := func(fh http.Handler) http.Handler {
 		var cs []func(http.Handler) http.Handler
 		cs = append(cs, mws...)
 		var h http.Handler
-		h = fh
+		h = fh // disable linter warning
 		for i := range cs {
 			h = cs[len(cs)-1-i](h)
 		}
@@ -156,6 +161,8 @@ func (m *Multi) Use(uri string, n RESTfuler, mws ...func(http.Handler) http.Hand
 }
 
 // Run run multi on port.
+//
+// TODO; change logic to allow server stop without leaking a goroutine.
 func (m *Multi) Run(port int) chan os.Signal {
 	http.Handle("/", m.Mux)
 	go log.Fatal(http.ListenAndServe(fmt.Sprintf(":%v", port), nil))
