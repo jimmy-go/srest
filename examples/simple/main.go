@@ -43,13 +43,13 @@ func main() {
 	}
 
 	// load template views only for this project
-	err = srest.LoadViews(*tmpls)
+	err = srest.LoadViews(*tmpls, srest.DefaultFuncMap)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	m := srest.New(nil)
-	m.Static("/static", *static)
+	m.Get("/static", srest.Static("/static", *static))
 	m.Use("/v1/api/friends", friends.New())
 	m.Use("/v1/api/mid", friends.New(), mwOne, mwTwo)
 	m.Use("/home", &home.API{})
