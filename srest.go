@@ -1,14 +1,14 @@
 // Package srest contains utilyties for sites creation and web services.
 /*
-RESTfuler interface:
-Create(w http.ResponseWriter, r *http.Request)
-One(w http.ResponseWriter, r *http.Request)
-List(w http.ResponseWriter, r *http.Request)
-Update(w http.ResponseWriter, r *http.Request)
-Delete(w http.ResponseWriter, r *http.Request)
+	RESTfuler interface:
+		Create(w http.ResponseWriter, r *http.Request)
+		One(w http.ResponseWriter, r *http.Request)
+		List(w http.ResponseWriter, r *http.Request)
+		Update(w http.ResponseWriter, r *http.Request)
+		Delete(w http.ResponseWriter, r *http.Request)
 
-Modeler interface:
-IsValid() error
+	Modeler interface:
+		IsValid() error
 */
 // The MIT License (MIT)
 //
@@ -53,6 +53,7 @@ import (
 
 	"github.com/bmizerany/pat"
 	"github.com/gorilla/schema"
+	// "github.com/braintree/manners"
 )
 
 var (
@@ -89,15 +90,27 @@ type Options struct {
 	TLSKey string
 }
 
+var (
+	// DefaultConf contains default configutarion for development running.
+	DefaultConf = &Options{
+		UseTLS: false,
+	}
+)
+
 // Multi struct.
 type Multi struct {
-	Mux *pat.PatternServeMux
+	Mux     *pat.PatternServeMux
+	Options *Options
 }
 
 // New returns a new server.
-func New(opts *Options) *Multi {
+func New(options *Options) *Multi {
+	if options == nil {
+		options = DefaultConf
+	}
 	m := &Multi{
-		Mux: pat.New(),
+		Mux:     pat.New(),
+		Options: options,
 	}
 	return m
 }
@@ -109,25 +122,34 @@ func Static(uri, dir string) http.Handler {
 	return http.StripPrefix(path.Clean(uri), http.FileServer(http.Dir(dir)))
 }
 
+func chainHandler(fh http.Handler, mws ...func(http.Handler) http.Handler) http.Handler {
+	var cs []func(http.Handler) http.Handler
+	cs = append(cs, mws...)
+	var h http.Handler
+	h = fh // disable linter warning
+	for i := range cs {
+		h = cs[len(cs)-1-i](h)
+	}
+	return h
+}
+
 // Get conveniense.
 func (m *Multi) Get(uri string, hf http.Handler, mws ...func(http.Handler) http.Handler) {
 	if len(mws) < 1 {
 		m.Mux.Get(uri, hf)
 		return
 	}
+	m.Mux.Get(uri, chainHandler(hf, mws...))
+}
 
-	// TODO; move hfs outside
-	hfs := func(fh http.Handler) http.Handler {
-		var cs []func(http.Handler) http.Handler
-		cs = append(cs, mws...)
-		var h http.Handler
-		h = fh // disable linter warning
-		for i := range cs {
-			h = cs[len(cs)-1-i](h)
-		}
-		return h
+func chainHandlerFunc(fh http.HandlerFunc, mws ...func(http.Handler) http.Handler) http.Handler {
+	var cs []func(http.Handler) http.Handler
+	cs = append(cs, mws...)
+	var h http.Handler = http.HandlerFunc(fh)
+	for i := range cs {
+		h = cs[len(cs)-1-i](h)
 	}
-	m.Mux.Get(uri, hfs(hf))
+	return h
 }
 
 // Use adds endpoints RESTful
@@ -142,34 +164,44 @@ func (m *Multi) Use(uri string, n RESTfuler, mws ...func(http.Handler) http.Hand
 		return
 	}
 
-	// TODO; move hfs outside
-	hfs := func(fh http.HandlerFunc) http.Handler {
-		var cs []func(http.Handler) http.Handler
-		cs = append(cs, mws...)
-		var h http.Handler = http.HandlerFunc(fh)
-		for i := range cs {
-			h = cs[len(cs)-1-i](h)
-		}
-		return h
-	}
-
-	m.Mux.Get(uri+"/:id", hfs(n.One))
-	m.Mux.Get(uri, hfs(n.List))
-	m.Mux.Post(uri, hfs(n.Create))
-	m.Mux.Put(uri, hfs(n.Update))
-	m.Mux.Del(uri+"/:id", hfs(n.Delete))
+	m.Mux.Get(uri+"/:id", chainHandlerFunc(n.One, mws...))
+	m.Mux.Get(uri, chainHandlerFunc(n.List, mws...))
+	m.Mux.Post(uri, chainHandlerFunc(n.Create, mws...))
+	m.Mux.Put(uri, chainHandlerFunc(n.Update, mws...))
+	m.Mux.Del(uri+"/:id", chainHandlerFunc(n.Delete, mws...))
 }
 
-// Run run multi on port.
+// Run start server listening with http.ListenAndServe or http.ListenAndServeTLS
+// returns a channel bind it to SIGTERM AND SIGINT, you need to block using this
+// channel this way: <-m.Run()
 //
-// TODO; change logic to allow server stop without leaking a goroutine.
+// TODO; change logic to allow server stop without leaking a goroutine and handle graceful shutdown.
 func (m *Multi) Run(port int) chan os.Signal {
-	http.Handle("/", m.Mux)
-	go log.Fatal(http.ListenAndServe(fmt.Sprintf(":%v", port), nil))
-
 	c := make(chan os.Signal)
 	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		http.Handle("/", m.Mux) // old implementation
+		addrs := fmt.Sprintf(":%v", port)
+		var err error
+		if m.Options.UseTLS {
+			log.Printf("srest: Run %v", addrs)
+			// err = manners.ListenAndServeTLS(addrs, m.Options.TLSCer, m.Options.TLSKey, m.Mux)
+			err = http.ListenAndServeTLS(addrs, m.Options.TLSCer, m.Options.TLSKey, nil)
+		} else {
+			log.Printf("srest: Run %v", addrs)
+			// err = manners.ListenAndServe(addrs, m.Mux)
+			err = http.ListenAndServe(addrs, nil)
+		}
+		if err != nil {
+			log.Printf("srest: Run : ListenAndServe : err [%s]", err)
+		}
+	}()
 	return c
+}
+
+// Close wrapper for manners.Close()
+func (m *Multi) Close() {
+	// manners.Close()
 }
 
 // Debug enables templates reload with every petition.

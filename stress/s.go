@@ -28,13 +28,12 @@ TODO; add example usage
 package stress
 
 import (
+	"bytes"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
-	"os"
-	"os/signal"
 	"sync"
-	"syscall"
 	"time"
 )
 
@@ -47,10 +46,11 @@ type Target struct {
 
 // Attacker struct.
 type Attacker struct {
-	pool    chan *http.Client
-	host    string
-	targets []*Target
-	Done    chan struct{}
+	pool     chan *http.Client
+	host     string
+	targetsc chan *Target
+	duration time.Duration
+	done     chan struct{}
 }
 
 // New returns a new attacker.
@@ -65,60 +65,96 @@ func New(host string, users int, duration time.Duration) *Attacker {
 	}
 
 	a := &Attacker{
-		pool: ccs,
-		host: host,
-		Done: make(chan struct{}, 1),
+		pool:     ccs,
+		host:     host,
+		targetsc: make(chan *Target, users),
+		duration: duration,
+		done:     make(chan struct{}, 1),
 	}
 	return a
 }
 
-// Hit attacks endpoint.
+// Hit register endpoint for attack with model schema.
 func (h *Attacker) Hit(path string, model interface{}) {
-	h.targets = append(h.targets, &Target{
-		URL:    h.host + path + "/:id",
-		Method: "GET",
-	})
-	h.targets = append(h.targets, &Target{
+	// test only list
+	params := url.Values{}
+	h.targetsc <- &Target{
 		URL:    h.host + path,
 		Method: "GET",
-	})
-	h.targets = append(h.targets, &Target{
+		Data:   params,
+	}
+	return
+	h.targetsc <- &Target{
+		URL:    h.host + path + "/:id",
+		Method: "GET",
+		Data:   params,
+	}
+	h.targetsc <- &Target{
 		URL:    h.host + path,
 		Method: "POST",
-	})
-	h.targets = append(h.targets, &Target{
+		Data:   params,
+	}
+	h.targetsc <- &Target{
 		URL:    h.host + path,
 		Method: "PUT",
-	})
-	h.targets = append(h.targets, &Target{
+		Data:   params,
+	}
+	h.targetsc <- &Target{
 		URL:    h.host + path + "/:id",
 		Method: "DELETE",
-	})
+		Data:   params,
+	}
 }
 
 // Run func
-func (h *Attacker) Run() chan os.Signal {
+func (h *Attacker) Run() chan struct{} {
 	go func() {
 		for {
 			select {
-			case <-h.Done:
-				log.Printf("Exit")
-				return
-				// case <-time.After(5 * time.Millisecond):
-			default:
-				client := <-h.pool
-				uri := h.targets[0].URL
-				_, err := client.Get(uri)
+			case tar := <-h.targetsc:
+				h.targetsc <- tar
+				if len(h.done) > 0 {
+					log.Printf("Run : return closed chan targets")
+					return
+				}
+				req, err := http.NewRequest(tar.Method, tar.URL, bytes.NewBufferString(tar.Data.Encode()))
+				if err != nil {
+					log.Printf("Run : err [%s]", err)
+					continue
+				}
+				client, ok := <-h.pool
+				if !ok {
+					log.Printf("Run : return closed chan pool")
+					return
+				}
+				res, err := client.Do(req)
 				h.pool <- client
 				if err != nil {
-					logError(err)
+					log.Printf("Run : err [%s]", err)
+					continue
 				}
+				// log.Printf("Run : status code [%v] url [%s]", res.StatusCode, tar.URL)
+				if res.StatusCode != http.StatusOK {
+					b, _ := ioutil.ReadAll(res.Body)
+					log.Printf("Run : err status code [%v] method [%s] url [%s] body [%v]", res.StatusCode, tar.Method, tar.URL, string(b))
+				}
+				res.Body.Close()
 			}
 		}
 	}()
-	c := make(chan os.Signal)
-	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
-	return c
+	go func() {
+		<-time.After(h.duration)
+		h.Stop()
+	}()
+	return h.done
+}
+
+// Stop finishes all attackers routines.
+func (h *Attacker) Stop() {
+	select {
+	case h.done <- struct{}{}:
+	default:
+	}
 }
 
 var (
@@ -128,12 +164,4 @@ var (
 
 func logError(err error) {
 	log.Printf("Error : [%s]", err)
-	return
-	//	mut.RLock()
-	//	defer mut.RUnlock()
-	//	_, ok := errs[err.Error()]
-	//	if ok {
-	//		return
-	//	}
-	//	errs[err.Error()] = true
 }

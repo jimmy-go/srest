@@ -41,6 +41,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"syscall"
 	"testing"
 )
 
@@ -151,9 +152,17 @@ func TestServer(t *testing.T) {
 	// TODO; how can be tested?
 	m := New(nil)
 	m.Get("/static", Static("/static", "mydir"))
+	m.Get("/static", Static("/static", "mydir"))
 	m.Use("/v1/api/friends", &API{t})
 	m.Use("/v1/api/others", &API{t}, sampleMW)
-	// m.Run(9999)
+	// TODO; broken
+	c := <-m.Run(9999)
+	select {
+	case c <- syscall.SIGTERM:
+		log.Printf("TestServer : SIGTERM [%v]", c)
+	default:
+		log.Printf("TestServer : default [%v]", c)
+	}
 }
 
 func TestRenderFail(t *testing.T) {
