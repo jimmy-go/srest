@@ -142,6 +142,15 @@ func (m *Multi) Get(uri string, hf http.Handler, mws ...func(http.Handler) http.
 	m.Mux.Get(uri, chainHandler(hf, mws...))
 }
 
+// Post conveniense.
+func (m *Multi) Post(uri string, hf http.Handler, mws ...func(http.Handler) http.Handler) {
+	if len(mws) < 1 {
+		m.Mux.Get(uri, hf)
+		return
+	}
+	m.Mux.Post(uri, chainHandler(hf, mws...))
+}
+
 func chainHandlerFunc(fh http.HandlerFunc, mws ...func(http.Handler) http.Handler) http.Handler {
 	var cs []func(http.Handler) http.Handler
 	cs = append(cs, mws...)
