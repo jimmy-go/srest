@@ -6,19 +6,25 @@
 [![GoDoc](http://godoc.org/github.com/jimmy-go/srest?status.png)](http://godoc.org/github.com/jimmy-go/srest)
 [![Coverage Status](https://coveralls.io/repos/github/jimmy-go/srest/badge.svg?branch=master)](https://coveralls.io/github/jimmy-go/srest?branch=master)
 
-srest goal it's help you building sites and RESTful APIs servers with clear
-code and fast execution, without enslave you to complicated frameworks rules.
-Uses a thin layer over another already useful toolkits:
+srest goal it's help you build sites and clear RESTful APIs webservices.
+Without enslave you to complicated frameworks rules.
+It's a thin layer over other useful toolkits:
 
 [bmizerany/pat](https://github.com/bmizerany/pat)
 
 [gorilla/schema](https://github.com/gorilla/schema)
 
+Features:
+* Endpoint declaration with middleware support.
+* Input model validation.
+* Templates made easy (and faster).
+* Util for Fast to build Stress tests (still in development).
+
 ----
 
-Current version is under 1.0 so some breaking changes can be allowed.
+Current version is under 1.0 some breaking changes can happen.
 
-Installation:
+Install:
 ```
 go get github.com/jimmy-go/srest
 ```
@@ -29,23 +35,26 @@ Usage:
     m := srest.New(nil)
 
     // static server endpoint.
-	m.Get("/static", srest.Static("/static", *static))
+	m.Get("/public", srest.Static("/public/", PathToMyDir))
 
     // friends.New() return a struct that satisfies RESTfuler.
-    // This generates endpoints:
-    // /v1/api/friends GET
-    // /v1/api/friends/:id GET
-    // /v1/api/friends POST
-    // /v1/api/friends/:id PUT
-    // /v1/api/friends/:id DELETE
+    // generates endpoints:
+    // GET     /v1/api/friends
+    // GET     /v1/api/friends/:id
+    // POST    /v1/api/friends
+    // PUT     /v1/api/friends/:id
+    // DELETE  /v1/api/friends/:id
     m.Use("/v1/api/friends", friends.New())
+    // with middlewares
+    m.Use("/v1/api/friends", friends.New(), Mid1, Mid2, Mid3)
 
-    // for custom endpoints you can use .Get .Post .Put and .Del
+    // for custom endpoints you can use .Get .Post .Put
+    // and .Del methods
     // you can pass middlewares too.
     m.Get("/custom", myHTTPHandler, Mid1, Mid2, Mid3)
 
     // you can access mux directly too.
-    // (you can't add middlewares so easily with this way.)
+    // (but you can't add middlewares easily this way.)
     m.Mux.Post("/me", myHTTPHandlerFunc)
 
     // Run call http.ListenAndServe or ListenAndServeTLS
@@ -53,7 +62,8 @@ Usage:
     // until SIGTERM or SIGINT signal.
     <-m.Run(55555)
 
-    // when you call Use Method in srest a RESTfuler interface is required.
+    // when you call Use Method in srest a RESTfuler interface
+    // is required.
     type RESTfuler interface {
         Create(w http.ResponseWriter, r *http.Request)
         One(w http.ResponseWriter, r *http.Request)
@@ -64,30 +74,58 @@ Usage:
 ```
 
 You need an easy way for params validation? take a look at Modeler interface
+```
 type Modeler interface {
 	IsValid() error
 }
+```
 
 example:
 ```
+// my model
 type Params struct{
     Name string `schema:"name"`
     LastName string `schema:"last_name"`
 }
 
 // my model validation
-func(m *Params) IsValid() error{
+func(m *Params) IsValid() error {
     if len(m.Name) < 1 {
-        return errors.New("model: param name is required")
+        return errors.New("model: name is required")
     }
     return nil
 }
 
-var p Params
-// Bind binds url.Values to struct using gorilla schema
-err := srest.Bind(req.PostForm, &p)
-check errors...
+// some handlerfunc
+func(w http.ResponseWriter, r *http.Request) {
+    var p Params
+    // Bind binds url.Values to struct using gorilla schema
+    err := srest.Bind(r.PostForm, &p)
+    check errors...
+}
 ```
+
+Working with html templates:
+```
+    // declare a new srest without TLS configuration.
+    m := srest.New(nil)
+
+    // load templates
+    err := srest.LoadViews(PathToDir, srest.DefaultFuncMap)
+    check errors...
+
+    // start server as normal
+    <-m.Run(7070)
+
+    // some http handler func.
+    func(w http.ResponseWriter, r *http.Request) {
+        v := map[string]interface{}{"some":"A"}
+        err := srest.Render(w, "home.html", v)
+        check errors...
+    }
+```
+
+Take a look at the working example with all features on examples dir.
 
 #### ToDo:
 
@@ -95,7 +133,7 @@ check errors...
 * Add support for status 503.
 * Change example database to sqlite.
 * Complete module stress and example stress.
-* You can make stress tests using the package srest/stress with only a Modeler interface (described below).
+* Make stress tests using the package srest/stress.
 
 ##### License
 

@@ -1,4 +1,4 @@
-// Package srest contains utilyties for sites creation and web services.
+// Package srest contains tools for sites and web services creation.
 /*
 	RESTfuler interface:
 		Create(w http.ResponseWriter, r *http.Request)
@@ -36,7 +36,6 @@ package srest
 import (
 	"errors"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -86,20 +85,17 @@ func (m *Modelfail) IsValid() error {
 }
 
 func TestBind(t *testing.T) {
-	log.SetFlags(log.Lshortfile)
-	// Bind
 	p := url.Values{}
 	p.Add("name", "x")
 	var x Model
 	err := Bind(p, &x)
 	if err != nil {
-		log.Printf("Bind err [%s]", err)
+		t.Logf("TestBind : bind err [%s]", err)
 		t.Fail()
 	}
 }
 
 func TestBindFail(t *testing.T) {
-	// Bind fail
 	p := url.Values{}
 	p.Add("name", "x")
 	var x struct {
@@ -107,7 +103,7 @@ func TestBindFail(t *testing.T) {
 	}
 	err := Bind(p, &x)
 	if err == nil {
-		log.Printf("Bind err [%s]", err)
+		t.Logf("TestBindFail : bind : err [%s]", err)
 		t.Fail()
 	}
 }
@@ -116,13 +112,12 @@ func TestModeler(t *testing.T) {
 }
 
 func TestModelerFail(t *testing.T) {
-	// IsValid fail
 	p := url.Values{}
 	p.Add("name", "x")
 	var x Modelfail
 	err := Bind(p, &x)
 	if err == nil {
-		log.Printf("Bind err [%s]", err)
+		t.Logf("TestModelerFail : bind : err [%s]", err)
 		t.Fail()
 	}
 }
@@ -136,7 +131,7 @@ func TestBindDecoderFail(t *testing.T) {
 	var x Modelfail
 	err := Bind(p, x)
 	if err == nil {
-		log.Printf("Bind err [%s]", err)
+		t.Logf("TestBindDecoderFail : bind : err [%s]", err)
 		t.Fail()
 	}
 }
@@ -149,9 +144,13 @@ func sampleMW(h http.Handler) http.Handler {
 }
 
 func TestServer(t *testing.T) {
-	// TODO; how can be tested?
+	defer func() {
+		if err := recover(); err != nil {
+			t.Logf("TestServer : panics : err [%s]", err)
+		}
+	}()
+
 	m := New(nil)
-	m.Get("/static", Static("/static", "mydir"))
 	m.Get("/static", Static("/static", "mydir"))
 	m.Use("/v1/api/friends", &API{t})
 	m.Use("/v1/api/others", &API{t}, sampleMW)
@@ -161,11 +160,43 @@ func TestServer(t *testing.T) {
 	}()
 }
 
+func TestMiddleware(t *testing.T) {
+	defer func() {
+		if err := recover(); err != nil {
+			t.Logf("TestMiddleware : panics : err [%s]", err)
+		}
+	}()
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		JSON(w, true)
+	})
+	MidOne := func(h http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			h.ServeHTTP(w, r)
+		})
+	}
+	MidTwo := func(h http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			h.ServeHTTP(w, r)
+		})
+	}
+
+	// TODO; test middleware behavior is working.
+	m := New(nil)
+	m.Get("/homei/", handler, MidOne, MidTwo)
+	m.Post("/homeii/", handler, MidOne, MidTwo)
+	m.Put("/homeiii/", handler, MidOne, MidTwo)
+	m.Del("/homeiv/", handler, MidOne, MidTwo)
+	c := m.Run(9998)
+	go func() {
+		c <- syscall.SIGTERM
+	}()
+}
+
 func TestRenderFail(t *testing.T) {
 	w := httptest.NewRecorder()
 	err := Render(w, "none", true)
 	if err == nil {
-		log.Printf("Render err [%s]", err)
+		t.Logf("TestRenderFail : render : err [%s]", err)
 		t.Fail()
 	}
 }
@@ -174,7 +205,7 @@ func TestLoadViews(t *testing.T) {
 	tmplInited = false
 	err := LoadViews("mock2fail", map[string]interface{}{})
 	if err != nil {
-		log.Printf("LoadViews : err [%s]", err)
+		t.Logf("TestLoadViews : LoadViews : err [%s]", err)
 		t.Fail()
 	}
 }
@@ -183,7 +214,7 @@ func TestLoadViewsFail(t *testing.T) {
 	tmplInited = false
 	err := LoadViews("mock2fail", map[string]interface{}{})
 	if err != nil {
-		log.Printf("LoadViewsFail : err [%s]", err)
+		t.Logf("TestLoadViewsFail : LoadViews : err [%s]", err)
 		t.Fail()
 	}
 }
@@ -191,7 +222,7 @@ func TestLoadViewsFail(t *testing.T) {
 func TestRender(t *testing.T) {
 	dir, err := os.Getwd()
 	if err != nil {
-		log.Printf("TestRender : err [%s]", err)
+		t.Logf("TestRender : get pwd : err [%s]", err)
 		t.Fail()
 	}
 
@@ -199,29 +230,29 @@ func TestRender(t *testing.T) {
 	funcm := deffuncmap()
 	err = LoadViews(dir+"/mock", funcm)
 	if err != nil {
-		log.Printf("TestRender : err [%s]", err)
+		t.Logf("TestRender : LoadViews : err [%s]", err)
 		t.Fail()
 	}
 
 	w := httptest.NewRecorder()
 	// mock/index.html file must exists o this will panic
-	// index.html content: {{cap "i am lowercase"}}
+	// index.html content will be: {{cap "i am lowercase"}}
 	err = Render(w, "index.html", map[string]interface{}{"x": 1})
 	if err != nil {
-		log.Printf("TestRender : err [%s]", err)
+		t.Logf("TestRender : Render : err [%s]", err)
 		t.Fail()
 	}
 
 	actual, err := ioutil.ReadAll(w.Body)
 	if err != nil {
-		log.Printf("TestRender : err [%s]", err)
+		t.Logf("TestRender : read body : err [%s]", err)
 		t.Fail()
 	}
 
 	expected := []byte("I am lowercase")
 	// take first 14 chars because readAll adds and aditional \r
 	if string(actual[:13]) != string(expected[:13]) {
-		log.Printf("TestRender : expected [%s] actual [%s]", string(expected), string(actual))
+		t.Logf("TestRender : expected [%s] actual [%s]", string(expected), string(actual))
 		t.Fail()
 	}
 }
@@ -230,17 +261,17 @@ func TestJSON(t *testing.T) {
 	w := httptest.NewRecorder()
 	err := JSON(w, `this is string`)
 	if err != nil {
-		log.Printf("TestJSON : err [%s]", err)
+		t.Logf("TestJSON : JSON : err [%s]", err)
 		t.Fail()
 	}
 	actual, err := ioutil.ReadAll(w.Body)
 	if err != nil {
-		log.Printf("TestJSON : err [%s]", err)
+		t.Logf("TestJSON : read body : err [%s]", err)
 		t.Fail()
 	}
 	expected := []byte(`"this is string"`)
 	if string(actual[:len(actual)-1]) != string(expected) {
-		log.Printf("TestJSON : expected [%v] actual [%v]", string(expected), string(actual[:len(actual)-1]))
+		t.Logf("TestJSON : expected [%v] actual [%v]", string(expected), string(actual[:len(actual)-1]))
 		t.Fail()
 	}
 }

@@ -115,9 +115,10 @@ func New(options *Options) *Multi {
 	return m
 }
 
-// Static replaces old Static func convenience method.
+// Static handler.
 //
-// Usage with Get("/public/", Static("/public/", "mydir")) slashes are important.
+// Usage:
+// Get("/public/", Static("/public/", "mydir")) slashes are important!
 func Static(uri, dir string) http.Handler {
 	return http.StripPrefix(path.Clean(uri), http.FileServer(http.Dir(dir)))
 }
@@ -131,7 +132,7 @@ func chainHandler(fh http.Handler, mws ...func(http.Handler) http.Handler) http.
 	var cs []func(http.Handler) http.Handler
 	cs = append(cs, mws...)
 	var h http.Handler
-	h = fh // disable linter warning
+	h = fh // this disable linter warning
 	for i := range cs {
 		h = cs[len(cs)-1-i](h)
 	}
@@ -180,17 +181,16 @@ func (m *Multi) Run(port int) chan os.Signal {
 	c := make(chan os.Signal)
 	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
-		http.Handle("/", m.Mux) // old implementation
 		addrs := fmt.Sprintf(":%v", port)
 		var err error
 		if m.Options.UseTLS {
 			log.Printf("srest: Run %v", addrs)
 			// err = manners.ListenAndServeTLS(addrs, m.Options.TLSCer, m.Options.TLSKey, m.Mux)
-			err = http.ListenAndServeTLS(addrs, m.Options.TLSCer, m.Options.TLSKey, nil)
+			err = http.ListenAndServeTLS(addrs, m.Options.TLSCer, m.Options.TLSKey, m.Mux)
 		} else {
 			log.Printf("srest: Run %v", addrs)
 			// err = manners.ListenAndServe(addrs, m.Mux)
-			err = http.ListenAndServe(addrs, nil)
+			err = http.ListenAndServe(addrs, m.Mux)
 		}
 		if err != nil {
 			log.Printf("srest: Run : ListenAndServe : err [%s]", err)
