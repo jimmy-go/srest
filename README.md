@@ -25,83 +25,69 @@ go get github.com/jimmy-go/srest
 
 Usage:
 ```
-    m := srest.New(nil) // init a new srest without TLS configuration.
-	m.Get("/static", srest.Static("/static", *static)) // declare a static dir.
-    m.Use("/v1/api/friends", friends.New()) // satisfies RESTfuler. This generates GET GET/:id POST PUT and DELETE/:id endpoints
-    m.Use("/home", &home.API{}) // satisfies RESTfuler. This generates GET GET/:id POST PUT and DELETE/:id endpoints
-    m.Get("/custom", myHTTPHandlerFunc) // you can access all pat methods directly too.
-    <-m.Run(55555) // Run start a server on port 55555, if TLS support is needed take a look on srest.Options.
+    // declare a new srest without TLS configuration.
+    m := srest.New(nil)
+
+    // static server endpoint.
+	m.Get("/static", srest.Static("/static", *static))
+
+    // friends.New() return a struct that satisfies RESTfuler.
+    // This generates endpoints:
+    // /v1/api/friends GET
+    // /v1/api/friends/:id GET
+    // /v1/api/friends POST
+    // /v1/api/friends/:id PUT
+    // /v1/api/friends/:id DELETE
+    m.Use("/v1/api/friends", friends.New())
+
+    // for custom endpoints you can use .Get .Post .Put and .Del
+    // you can pass middlewares too.
+    m.Get("/custom", myHTTPHandler, Mid1, Mid2, Mid3)
+
+    // you can access mux directly too.
+    // (you can't add middlewares so easily with this way.)
+    m.Mux.Post("/me", myHTTPHandlerFunc)
+
+    // Run call http.ListenAndServe or ListenAndServeTLS
+    // (view srest.Options for TLS config)
+    // until SIGTERM or SIGINT signal.
+    <-m.Run(55555)
+
+    // when you call Use Method in srest a RESTfuler interface is required.
+    type RESTfuler interface {
+        Create(w http.ResponseWriter, r *http.Request)
+        One(w http.ResponseWriter, r *http.Request)
+        List(w http.ResponseWriter, r *http.Request)
+        Update(w http.ResponseWriter, r *http.Request)
+        Delete(w http.ResponseWriter, r *http.Request)
+    }
 ```
 
-You need a RESTfuler interface and for your models Modeler interface.
-
-```
-type RESTfuler interface {
-	Create(w http.ResponseWriter, r *http.Request)
-	One(w http.ResponseWriter, r *http.Request)
-	List(w http.ResponseWriter, r *http.Request)
-	Update(w http.ResponseWriter, r *http.Request)
-	Delete(w http.ResponseWriter, r *http.Request)
-}
-
+You need an easy way for params validation? take a look at Modeler interface
 type Modeler interface {
 	IsValid() error
 }
-```
 
-You can pass middlewares too:
+example:
 ```
-    m.Use("/v1/api/friends", friends.New(), Mid1, Mid2, Mid3 )
-    m.Get("/customhandler", func(w http.ResponseWriter,r *http.Request){}, Mid1, Mid2, Mid3)
-```
-
-Example:
-```
-package users
-
-// User model implements Modeler interface
-type User struct {
-	Name  string `db:"name" json:"name"`
-	Email string `db:"email" json:"email"`
+type Params struct{
+    Name string `schema:"name"`
+    LastName string `schema:"last_name"`
 }
 
-func (u *User) IsValid() bool {
-    // do validation here
-	return true
+// my model validation
+func(m *Params) IsValid() error{
+    if len(m.Name) < 1 {
+        return errors.New("model: param name is required")
+    }
+    return nil
 }
 
-// API struct implements RESTfuler interface
-type API struct{}
-
-func (a *API) Create(w http.ResponseWriter, r *http.Request) {
-	var m *Friend
-	err := srest.Bind(r, &m)
-	if err != nil {
-		srest.JSON(w, err)
-		return
-	}
-    // Logic here
-	srest.JSON(w, "some response")
-}
-
-func (a *API) One(w http.ResponseWriter, r *http.Request) {
-	srest.JSON(w, "some response")
-}
-
-func (a *API) List(w http.ResponseWriter, r *http.Request) {
-	srest.JSON(w, "some list")
-}
-
-// We don't use this but is needed for RESTfuler interface
-func (a *API) Update(w http.ResponseWriter, r *http.Request) {}
-
-// We don't use this but is needed for RESTfuler interface
-func (a *API) Delete(w http.ResponseWriter, r *http.Request) {}
+var p Params
+// Bind binds url.Values to struct using gorilla schema
+err := srest.Bind(req.PostForm, &p)
+check errors...
 ```
-
-###### breaking changes:
-
-* replace ```srest.Static("/public", "mydir")``` for ```srest.Get("/public/", srest.Static("/public/", "mydir"))```
 
 #### ToDo:
 
