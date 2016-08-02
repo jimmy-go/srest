@@ -1,3 +1,5 @@
+// Package main contains full working example for srest.
+// EXAMPLE PROJECT
 package main
 
 import (
@@ -16,7 +18,7 @@ import (
 var (
 	port    = flag.Int("port", 0, "Listen port")
 	dbf     = flag.String("db", "", "Database connection url.")
-	tmpls   = flag.String("templates", "", "Templates files dir.")
+	views   = flag.String("templates", "", "Templates files dir.")
 	static  = flag.String("static", "", "Static dir.")
 	workers = flag.Int("workers", 1, "Worker pool size.")
 	queue   = flag.Int("queue", 10, "Queue length.")
@@ -26,7 +28,7 @@ func main() {
 	flag.Parse()
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	log.SetFlags(0)
-	log.Printf("templates dir [%v]", *tmpls)
+	log.Printf("templates dir [%v]", *views)
 	log.Printf("static dir [%v]", *static)
 
 	// connect to database
@@ -43,7 +45,7 @@ func main() {
 	}
 
 	// load template views only for this project
-	err = srest.LoadViews(*tmpls, srest.DefaultFuncMap)
+	err = srest.LoadViews(*views, srest.DefaultFuncMap)
 	if err != nil {
 		log.Fatal(err)
 	}
