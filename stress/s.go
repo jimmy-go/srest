@@ -83,7 +83,6 @@ func (h *Attacker) Hit(path string, model interface{}) {
 		Method: "GET",
 		Data:   params,
 	}
-	return
 	h.targetsc <- &Target{
 		URL:    h.host + path + "/:id",
 		Method: "GET",

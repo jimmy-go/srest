@@ -155,14 +155,10 @@ func TestServer(t *testing.T) {
 	m.Get("/static", Static("/static", "mydir"))
 	m.Use("/v1/api/friends", &API{t})
 	m.Use("/v1/api/others", &API{t}, sampleMW)
-	// TODO; broken
-	c := <-m.Run(9999)
-	select {
-	case c <- syscall.SIGTERM:
-		log.Printf("TestServer : SIGTERM [%v]", c)
-	default:
-		log.Printf("TestServer : default [%v]", c)
-	}
+	c := m.Run(9999)
+	go func() {
+		c <- syscall.SIGTERM
+	}()
 }
 
 func TestRenderFail(t *testing.T) {

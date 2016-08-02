@@ -123,6 +123,11 @@ func Static(uri, dir string) http.Handler {
 }
 
 func chainHandler(fh http.Handler, mws ...func(http.Handler) http.Handler) http.Handler {
+	// no middlewares then return handler
+	if len(mws) < 1 {
+		return fh
+	}
+
 	var cs []func(http.Handler) http.Handler
 	cs = append(cs, mws...)
 	var h http.Handler
@@ -133,50 +138,45 @@ func chainHandler(fh http.Handler, mws ...func(http.Handler) http.Handler) http.
 	return h
 }
 
-// Get conveniense.
+// Get wrapper useful for add middleware like Use method.
 func (m *Multi) Get(uri string, hf http.Handler, mws ...func(http.Handler) http.Handler) {
-	if len(mws) < 1 {
-		m.Mux.Get(uri, hf)
-		return
-	}
 	m.Mux.Get(uri, chainHandler(hf, mws...))
 }
 
+// Post wrapper useful for add middleware like Use method.
+func (m *Multi) Post(uri string, hf http.Handler, mws ...func(http.Handler) http.Handler) {
+	m.Mux.Post(uri, chainHandler(hf, mws...))
+}
+
+// Put wrapper useful for add middleware like Use method.
+func (m *Multi) Put(uri string, hf http.Handler, mws ...func(http.Handler) http.Handler) {
+	m.Mux.Put(uri, chainHandler(hf, mws...))
+}
+
+// Del wrapper useful for add middleware like Use method.
+func (m *Multi) Del(uri string, hf http.Handler, mws ...func(http.Handler) http.Handler) {
+	m.Mux.Del(uri, chainHandler(hf, mws...))
+}
+
 func chainHandlerFunc(fh http.HandlerFunc, mws ...func(http.Handler) http.Handler) http.Handler {
-	var cs []func(http.Handler) http.Handler
-	cs = append(cs, mws...)
-	var h http.Handler = http.HandlerFunc(fh)
-	for i := range cs {
-		h = cs[len(cs)-1-i](h)
-	}
-	return h
+	return chainHandler(http.HandlerFunc(fh))
 }
 
 // Use adds endpoints RESTful
 func (m *Multi) Use(uri string, n RESTfuler, mws ...func(http.Handler) http.Handler) {
 	uri = path.Clean(uri)
-	if len(mws) < 1 {
-		m.Mux.Get(uri+"/:id", http.HandlerFunc(n.One))
-		m.Mux.Get(uri, http.HandlerFunc(n.List))
-		m.Mux.Post(uri, http.HandlerFunc(n.Create))
-		m.Mux.Put(uri, http.HandlerFunc(n.Update))
-		m.Mux.Del(uri+"/:id", http.HandlerFunc(n.Delete))
-		return
-	}
-
 	m.Mux.Get(uri+"/:id", chainHandlerFunc(n.One, mws...))
 	m.Mux.Get(uri, chainHandlerFunc(n.List, mws...))
 	m.Mux.Post(uri, chainHandlerFunc(n.Create, mws...))
-	m.Mux.Put(uri, chainHandlerFunc(n.Update, mws...))
+	m.Mux.Put(uri+"/:id", chainHandlerFunc(n.Update, mws...))
 	m.Mux.Del(uri+"/:id", chainHandlerFunc(n.Delete, mws...))
 }
 
-// Run start server listening with http.ListenAndServe or http.ListenAndServeTLS
-// returns a channel bind it to SIGTERM AND SIGINT, you need to block using this
-// channel this way: <-m.Run()
-//
-// TODO; change logic to allow server stop without leaking a goroutine and handle graceful shutdown.
+// Run start a server listening with http.ListenAndServe or http.ListenAndServeTLS
+// returns a channel bind it to SIGTERM and SIGINT signal
+// you will block this way: <-m.Run()
 func (m *Multi) Run(port int) chan os.Signal {
+	// TODO; change logic to allow server stop without leaking a goroutine and handle graceful shutdown.
 	c := make(chan os.Signal)
 	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
@@ -300,6 +300,9 @@ func LoadViews(dir string, funcMap template.FuncMap) error {
 
 // Render writes a template to http response.
 func Render(w http.ResponseWriter, view string, v interface{}) error {
+	// for now use a mutex, later implementations can use sync.Pool of templates.
+	mut.RLock()
+	defer mut.RUnlock()
 	if debug {
 		// clean templates
 		for k := range templates {
@@ -320,9 +323,7 @@ func Render(w http.ResponseWriter, view string, v interface{}) error {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
 	var buf bytes.Buffer
-	mut.RLock()
 	t, ok := templates[view]
-	mut.RUnlock()
 	if !ok {
 		w.Write([]byte("template not found"))
 		return errTemplateNotFound
