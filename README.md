@@ -1,4 +1,4 @@
-#### RESTful toolkit.
+#### Simple RESTful toolkit.
 
 [![License MIT](https://img.shields.io/npm/l/express.svg)](http://opensource.org/licenses/MIT)
 [![Build Status](https://travis-ci.org/jimmy-go/srest.svg?branch=master)](https://travis-ci.org/jimmy-go/srest)
@@ -20,9 +20,8 @@ It's a thin layer over other useful toolkits:
 * Templates made easy (and faster).
 * Util for Fast to build Stress tests (still in development).
 
+_Current version is under 1.0 some breaking changes can happen._
 ----
-
-Current version is under 1.0 some breaking changes can happen.
 
 #####Install:
 ```
@@ -127,7 +126,7 @@ func(w http.ResponseWriter, r *http.Request) {
 
 Take a look at the working example with all features on examples dir.
 
-####ToDo:
+#####ToDo:
 
 * Benchmark for Render. If needed implement Render with templates pool.
 * Add support for status 503.
