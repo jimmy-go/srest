@@ -1,5 +1,7 @@
 // Package main contains full working example for srest.
 // EXAMPLE PROJECT
+// Task list (To-Do) with i18n, i10n and user sessions
+// controlled by sqlite.
 package main
 
 import (
