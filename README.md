@@ -1,4 +1,4 @@
-# Simple RESTful toolkit
+#### RESTful toolkit.
 
 [![License MIT](https://img.shields.io/npm/l/express.svg)](http://opensource.org/licenses/MIT)
 [![Build Status](https://travis-ci.org/jimmy-go/srest.svg?branch=master)](https://travis-ci.org/jimmy-go/srest)
@@ -6,7 +6,7 @@
 [![GoDoc](http://godoc.org/github.com/jimmy-go/srest?status.png)](http://godoc.org/github.com/jimmy-go/srest)
 [![Coverage Status](https://coveralls.io/repos/github/jimmy-go/srest/badge.svg?branch=master)](https://coveralls.io/github/jimmy-go/srest?branch=master)
 
-srest goal it's help you build sites and clear RESTful APIs webservices.
+Srest goal it's help you build sites and clear RESTful APIs webservices.
 Without enslave you to complicated frameworks rules.
 It's a thin layer over other useful toolkits:
 
@@ -14,7 +14,7 @@ It's a thin layer over other useful toolkits:
 
 [gorilla/schema](https://github.com/gorilla/schema)
 
-Features:
+#####Features:
 * Endpoint declaration with middleware support.
 * Input model validation.
 * Templates made easy (and faster).
@@ -24,12 +24,12 @@ Features:
 
 Current version is under 1.0 some breaking changes can happen.
 
-Install:
+#####Install:
 ```
 go get github.com/jimmy-go/srest
 ```
 
-Usage:
+#####Usage:
 ```
     // declare a new srest without TLS configuration.
     m := srest.New(nil)
@@ -80,7 +80,7 @@ type Modeler interface {
 }
 ```
 
-example:
+Example:
 ```
 // my model
 type Params struct{
@@ -105,7 +105,7 @@ func(w http.ResponseWriter, r *http.Request) {
 }
 ```
 
-Working with html templates:
+##### Working with html templates:
 ```
     // declare a new srest without TLS configuration.
     m := srest.New(nil)
@@ -127,7 +127,7 @@ Working with html templates:
 
 Take a look at the working example with all features on examples dir.
 
-#### ToDo:
+####ToDo:
 
 * Benchmark for Render. If needed implement Render with templates pool.
 * Add support for status 503.
@@ -135,7 +135,7 @@ Take a look at the working example with all features on examples dir.
 * Complete module stress and example stress.
 * Make stress tests using the package srest/stress.
 
-##### License
+#####License:
 
 The MIT License (MIT)
 
