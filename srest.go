@@ -160,7 +160,7 @@ func (m *Multi) Del(uri string, hf http.Handler, mws ...func(http.Handler) http.
 }
 
 func chainHandlerFunc(fh http.HandlerFunc, mws ...func(http.Handler) http.Handler) http.Handler {
-	return chainHandler(http.HandlerFunc(fh))
+	return chainHandler(http.HandlerFunc(fh), mws...)
 }
 
 // Use adds endpoints RESTful

@@ -160,6 +160,7 @@ func TestServer(t *testing.T) {
 	}()
 }
 
+// TODO; test middleware behavior is working. VERY IMPORTANT.
 func TestMiddleware(t *testing.T) {
 	defer func() {
 		if err := recover(); err != nil {
@@ -180,7 +181,6 @@ func TestMiddleware(t *testing.T) {
 		})
 	}
 
-	// TODO; test middleware behavior is working.
 	m := New(nil)
 	m.Get("/homei/", handler, MidOne, MidTwo)
 	m.Post("/homeii/", handler, MidOne, MidTwo)
