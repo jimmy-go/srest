@@ -140,16 +140,7 @@ func (m *SREST) Get(uri string, hf http.Handler, mws ...func(http.Handler) http.
 
 // Post wrapper useful for add middleware like Use method.
 func (m *SREST) Post(uri string, hf http.Handler, mws ...func(http.Handler) http.Handler) {
-<<<<<<< HEAD
-<<<<<<< HEAD
-	// FIXME; make test for clean POST endpoint.
-=======
->>>>>>> release/v0.0.2
-	uri = filepath.Clean(uri)
-	m.Mux.Post(uri, chainHandler(hf, mws...))
-=======
 	m.Mux.Post(path.Clean(uri), chainHandler(hf, mws...))
->>>>>>> release/v0.0.3
 }
 
 // Put wrapper useful for add middleware like Use method.
