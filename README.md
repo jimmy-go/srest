@@ -35,31 +35,6 @@ go get gopkg.in/jimmy-go/srest.v0
     // static server endpoint.
 	m.Get("/public", srest.Static("/public/", PathToMyDir))
 
-    // friends.New() return a struct that satisfies RESTfuler.
-    // generates endpoints:
-    // GET     /v1/api/friends
-    // GET     /v1/api/friends/:id
-    // POST    /v1/api/friends
-    // PUT     /v1/api/friends/:id
-    // DELETE  /v1/api/friends/:id
-    m.Use("/v1/api/friends", friends.New())
-    // with middlewares
-    m.Use("/v1/api/friends", friends.New(), Mid1, Mid2, Mid3)
-
-    // for custom endpoints you can use .Get .Post .Put
-    // and .Del methods
-    // you can pass middlewares too.
-    m.Get("/custom", myHTTPHandler, Mid1, Mid2, Mid3)
-
-    // you can access mux directly too.
-    // (but you can't add middlewares easily this way.)
-    m.Mux.Post("/me", myHTTPHandlerFunc)
-
-    // Run call http.ListenAndServe or ListenAndServeTLS
-    // (view srest.Options for TLS config)
-    // until SIGTERM or SIGINT signal.
-    <-m.Run(55555)
-
     // when you call Use Method in srest a RESTfuler interface
     // is required.
     type RESTfuler interface {
@@ -69,6 +44,32 @@ go get gopkg.in/jimmy-go/srest.v0
         Update(w http.ResponseWriter, r *http.Request)
         Delete(w http.ResponseWriter, r *http.Request)
     }
+
+    // Sample struct satisfies RESTfuler.
+    // generates endpoints:
+    // GET     /v1/api/friends
+    // GET     /v1/api/friends/:id
+    // POST    /v1/api/friends
+    // PUT     /v1/api/friends/:id
+    // DELETE  /v1/api/friends/:id
+    m.Use("/v1/api/friends", &Sample{})
+    // with middlewares
+    m.Use("/v1/api/friends", &Sample{}, Mid1, Mid2, Mid3)
+
+    // for custom endpoints you can use .Get .Post .Put
+    // and .Del methods
+    // you can pass middlewares too.
+    m.Get("/custom", myHTTPHandler, Mid1, Mid2, Mid3)
+
+    // you can access mux directly too.
+    // (but you can't add middlewares this way.)
+    m.Mux.Post("/me", myHTTPHandlerFunc)
+
+    // Run calls http.ListenAndServe or ListenAndServeTLS
+    // until SIGTERM or SIGINT signal.
+    // (view srest.Options for TLS config)
+    <-m.Run(55555)
+    // close database connections.
 ```
 
 You need an easy way for params validation? take a look at Modeler interface
@@ -110,7 +111,7 @@ func(w http.ResponseWriter, r *http.Request) {
 
     // load templates
     err := srest.LoadViews(PathToDir, srest.DefaultFuncMap)
-    check errors...
+    // check errors...
 
     // start server as normal
     <-m.Run(7070)
@@ -119,7 +120,7 @@ func(w http.ResponseWriter, r *http.Request) {
     func(w http.ResponseWriter, r *http.Request) {
         v := map[string]interface{}{"some":"A"}
         err := srest.Render(w, "home.html", v)
-        check errors...
+        // check errors...
     }
 ```
 
