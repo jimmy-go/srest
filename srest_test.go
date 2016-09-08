@@ -90,7 +90,7 @@ func TestBind(t *testing.T) {
 	var x Model
 	err := Bind(p, &x)
 	if err != nil {
-		t.Logf("TestBind : bind err [%s]", err)
+		t.Logf("bind err [%s]", err)
 		t.Fail()
 	}
 }
@@ -103,12 +103,9 @@ func TestBindFail(t *testing.T) {
 	}
 	err := Bind(p, &x)
 	if err == nil {
-		t.Logf("TestBindFail : bind : err [%s]", err)
+		t.Logf("bind : err [%s]", err)
 		t.Fail()
 	}
-}
-
-func TestModeler(t *testing.T) {
 }
 
 func TestModelerFail(t *testing.T) {
@@ -117,21 +114,17 @@ func TestModelerFail(t *testing.T) {
 	var x Modelfail
 	err := Bind(p, &x)
 	if err == nil {
-		t.Logf("TestModelerFail : bind : err [%s]", err)
+		t.Logf("bind : err [%s]", err)
 		t.Fail()
 	}
 }
 
-func TestBindDecoder(t *testing.T) {
-}
-
 func TestBindDecoderFail(t *testing.T) {
-	// Bind decoder fail
 	p := url.Values{}
 	var x Modelfail
 	err := Bind(p, x)
 	if err == nil {
-		t.Logf("TestBindDecoderFail : bind : err [%s]", err)
+		t.Logf("bind : err [%s]", err)
 		t.Fail()
 	}
 }
@@ -146,7 +139,7 @@ func sampleMW(h http.Handler) http.Handler {
 func TestServer(t *testing.T) {
 	defer func() {
 		if err := recover(); err != nil {
-			t.Logf("TestServer : panics : err [%s]", err)
+			t.Logf("panics : err [%s]", err)
 		}
 	}()
 
@@ -160,44 +153,170 @@ func TestServer(t *testing.T) {
 	}()
 }
 
-// TODO; test middleware behavior is working. VERY IMPORTANT.
-func TestMiddleware(t *testing.T) {
-	defer func() {
-		if err := recover(); err != nil {
-			t.Logf("TestMiddleware : panics : err [%s]", err)
-		}
-	}()
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		JSON(w, true)
-	})
-	MidOne := func(h http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			h.ServeHTTP(w, r)
-		})
-	}
-	MidTwo := func(h http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			h.ServeHTTP(w, r)
-		})
-	}
-
-	m := New(nil)
-	m.Get("/homei/", handler, MidOne, MidTwo)
-	m.Post("/homeii/", handler, MidOne, MidTwo)
-	m.Put("/homeiii/", handler, MidOne, MidTwo)
-	m.Del("/homeiv/", handler, MidOne, MidTwo)
-	c := m.Run(9998)
-	go func() {
-		c <- syscall.SIGTERM
-	}()
+type TM struct {
+	Input              Input
+	ExpectedBody       string
+	ExpectedStatusCode int
 }
 
-func TestRenderFail(t *testing.T) {
-	w := httptest.NewRecorder()
-	err := Render(w, "none", true)
-	if err == nil {
-		t.Logf("TestRenderFail : render : err [%s]", err)
-		t.Fail()
+type Input struct {
+	Options *Options
+	Port    int
+	Handler func(http.ResponseWriter, *http.Request)
+	MW      []func(http.Handler) http.Handler
+}
+
+func TestMiddlewareTable(t *testing.T) {
+	defer func() {
+		if err := recover(); err != nil {
+			t.Logf("recover : err [%s]", err)
+			t.Fail()
+		}
+	}()
+	table := []TM{
+		TM{
+			Input: Input{
+				Options: &Options{
+					UseTLS: true,
+				},
+				Handler: func(w http.ResponseWriter, r *http.Request) {
+					JSON(w, "x")
+				},
+				MW: []func(http.Handler) http.Handler{
+					func(h http.Handler) http.Handler {
+						return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+							h.ServeHTTP(w, r)
+						})
+					},
+				},
+			},
+			ExpectedStatusCode: http.StatusOK,
+			ExpectedBody:       `"x"`,
+		},
+		TM{
+			Input: Input{
+				Options: &Options{},
+				Handler: func(w http.ResponseWriter, r *http.Request) {
+					JSON(w, true)
+				},
+				MW: []func(http.Handler) http.Handler{
+					func(h http.Handler) http.Handler {
+						return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+							w.Write([]byte("one"))
+							h.ServeHTTP(w, r)
+						})
+					},
+				},
+			},
+			ExpectedStatusCode: http.StatusOK,
+			ExpectedBody:       `onetrue`,
+		},
+		TM{
+			Input: Input{
+				Options: nil,
+				Handler: func(w http.ResponseWriter, r *http.Request) {
+					JSON(w, true)
+				},
+				MW: []func(http.Handler) http.Handler{
+					func(h http.Handler) http.Handler {
+						return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+							w.Write([]byte("one"))
+							h.ServeHTTP(w, r)
+						})
+					},
+					func(h http.Handler) http.Handler {
+						return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+							w.Write([]byte("two"))
+							h.ServeHTTP(w, r)
+						})
+					},
+				},
+			},
+			ExpectedStatusCode: http.StatusOK,
+			ExpectedBody:       `onetwotrue`,
+		},
+		TM{
+			Input: Input{
+				Options: &Options{},
+				Handler: func(w http.ResponseWriter, r *http.Request) {
+					JSON(w, 1)
+				},
+				MW: []func(http.Handler) http.Handler{
+					func(h http.Handler) http.Handler {
+						return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+							// skip
+							return
+							h.ServeHTTP(w, r)
+							w.Write([]byte("one"))
+						})
+					},
+				},
+			},
+			ExpectedStatusCode: http.StatusOK,
+			ExpectedBody:       ``,
+		},
+		TM{
+			Input: Input{
+				Options: &Options{},
+				Handler: func(w http.ResponseWriter, r *http.Request) {
+					JSON(w, 2)
+				},
+				MW: []func(http.Handler) http.Handler{
+					func(h http.Handler) http.Handler {
+						return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+							// skip
+							w.WriteHeader(http.StatusBadRequest)
+							return
+							h.ServeHTTP(w, r)
+							w.Write([]byte("one"))
+						})
+					},
+				},
+			},
+			ExpectedStatusCode: http.StatusBadRequest,
+			ExpectedBody:       ``,
+		},
+	}
+	for i := range table {
+		x := table[i]
+
+		n := New(x.Input.Options)
+		n.Get("/", http.HandlerFunc(x.Input.Handler), x.Input.MW...)
+		ts := httptest.NewServer(n.Mux)
+		defer ts.Close()
+
+		res, err := http.Get(ts.URL)
+		if err != nil {
+			t.Logf("get : err [%s]", err)
+			t.Fail()
+			continue
+		}
+		defer res.Body.Close()
+
+		body, err := ioutil.ReadAll(res.Body)
+		if err != nil {
+			t.Logf("get : err [%s]", err)
+			t.Fail()
+		}
+
+		if res.StatusCode != x.ExpectedStatusCode {
+			t.Logf("expected [%v] actual [%v]", x.ExpectedStatusCode, res.StatusCode)
+			t.Fail()
+		}
+
+		actual := string(body)
+		if len(body) > 0 {
+			actual = actual[:len(actual)-1]
+		}
+		if actual != x.ExpectedBody {
+			t.Logf("expected [%s] actual [%s]", x.ExpectedBody, actual)
+			t.Fail()
+		}
+
+		c := n.Run(x.Input.Port)
+		go func() {
+			c <- syscall.SIGTERM
+		}()
 	}
 }
 
@@ -205,7 +324,7 @@ func TestLoadViews(t *testing.T) {
 	tmplInited = false
 	err := LoadViews("mock2fail", map[string]interface{}{})
 	if err != nil {
-		t.Logf("TestLoadViews : LoadViews : err [%s]", err)
+		t.Logf("LoadViews : err [%s]", err)
 		t.Fail()
 	}
 }
@@ -214,7 +333,7 @@ func TestLoadViewsFail(t *testing.T) {
 	tmplInited = false
 	err := LoadViews("mock2fail", map[string]interface{}{})
 	if err != nil {
-		t.Logf("TestLoadViewsFail : LoadViews : err [%s]", err)
+		t.Logf("LoadViews : err [%s]", err)
 		t.Fail()
 	}
 }
@@ -222,7 +341,7 @@ func TestLoadViewsFail(t *testing.T) {
 func TestRender(t *testing.T) {
 	dir, err := os.Getwd()
 	if err != nil {
-		t.Logf("TestRender : get pwd : err [%s]", err)
+		t.Logf("get pwd : err [%s]", err)
 		t.Fail()
 	}
 
@@ -230,30 +349,121 @@ func TestRender(t *testing.T) {
 	funcm := deffuncmap()
 	err = LoadViews(dir+"/mock", funcm)
 	if err != nil {
-		t.Logf("TestRender : LoadViews : err [%s]", err)
+		t.Logf("LoadViews : err [%s]", err)
 		t.Fail()
+		return
+	}
+
+	w := httptest.NewRecorder()
+	// mock/index.html file must exists o this will panic
+	// index.html content will be:
+	// {{cap "i am lowercase"}}-eqs:{{eqs 1 "1"}}{{cap ""}}
+	err = Render(w, "index.html", map[string]interface{}{"x": 1})
+	if err != nil {
+		t.Logf("Render : err [%s]", err)
+		t.Fail()
+		return
+	}
+
+	actual, err := ioutil.ReadAll(w.Body)
+	if err != nil {
+		t.Logf("read body : err [%s]", err)
+		t.Fail()
+		return
+	}
+
+	expected := []byte("I am lowercase-eqs:true")
+	// remove additional \r
+	actual = actual[:len(actual)-1]
+	if string(actual) != string(expected) {
+		t.Logf("expected [%s] actual [%s]", string(expected), string(actual))
+		t.Fail()
+		return
+	}
+}
+
+func TestRenderFail(t *testing.T) {
+	dir, err := os.Getwd()
+	if err != nil {
+		t.Logf("get pwd : err [%s]", err)
+		t.Fail()
+	}
+
+	tmplInited = false
+	funcm := deffuncmap()
+	err = LoadViews(dir+"/mock", funcm)
+	if err != nil {
+		t.Logf("LoadViews : err [%s]", err)
+		t.Fail()
+		return
 	}
 
 	w := httptest.NewRecorder()
 	// mock/index.html file must exists o this will panic
 	// index.html content will be: {{cap "i am lowercase"}}
-	err = Render(w, "index.html", map[string]interface{}{"x": 1})
-	if err != nil {
-		t.Logf("TestRender : Render : err [%s]", err)
+	err = Render(w, "notfound.html", map[string]interface{}{"x": 1})
+	if err != ErrTemplateNotFound {
+		t.Logf("Render : err [%s]", err)
 		t.Fail()
+		return
 	}
 
 	actual, err := ioutil.ReadAll(w.Body)
 	if err != nil {
-		t.Logf("TestRender : read body : err [%s]", err)
+		t.Logf("read body : err [%s]", err)
+		t.Fail()
+		return
+	}
+	expected := []byte("template not found")
+	if string(actual) != string(expected) {
+		t.Logf("expected [%s] actual [%s]", string(expected), string(actual))
+		t.Fail()
+		return
+	}
+}
+
+func TestRenderDebug(t *testing.T) {
+	dir, err := os.Getwd()
+	if err != nil {
+		t.Logf("get pwd : err [%s]", err)
 		t.Fail()
 	}
 
-	expected := []byte("I am lowercase")
-	// take first 14 chars because readAll adds and aditional \r
-	if string(actual[:13]) != string(expected[:13]) {
-		t.Logf("TestRender : expected [%s] actual [%s]", string(expected), string(actual))
+	tmplInited = false
+	funcm := deffuncmap()
+	err = LoadViews(dir+"/mock", funcm)
+	if err != nil {
+		t.Logf("LoadViews : err [%s]", err)
 		t.Fail()
+		return
+	}
+	Debug(true)
+
+	w := httptest.NewRecorder()
+	// mock/index.html file must exists o this will panic
+	// index.html content will be:
+	// {{cap "i am lowercase"}}-eqs:{{eqs 1 "1"}}{{cap ""}}
+	err = Render(w, "index.html", map[string]interface{}{"x": 1})
+	if err != nil {
+		t.Logf("Render : err [%s]", err)
+		t.Fail()
+		return
+	}
+
+	actual, err := ioutil.ReadAll(w.Body)
+	if err != nil {
+		t.Logf("read body : err [%s]", err)
+		t.Fail()
+		return
+	}
+
+	expected := []byte("I am lowercase-eqs:true")
+	// remove additional \r
+	actual = actual[:len(actual)-1]
+	if string(actual) != string(expected) {
+		t.Logf("expected [%s] actual [%s]", string(expected), string(actual))
+		t.Fail()
+		return
 	}
 }
 
@@ -261,17 +471,21 @@ func TestJSON(t *testing.T) {
 	w := httptest.NewRecorder()
 	err := JSON(w, `this is string`)
 	if err != nil {
-		t.Logf("TestJSON : JSON : err [%s]", err)
+		t.Logf("JSON : err [%s]", err)
 		t.Fail()
+		return
 	}
 	actual, err := ioutil.ReadAll(w.Body)
 	if err != nil {
-		t.Logf("TestJSON : read body : err [%s]", err)
+		t.Logf("read body : err [%s]", err)
 		t.Fail()
+		return
 	}
 	expected := []byte(`"this is string"`)
-	if string(actual[:len(actual)-1]) != string(expected) {
-		t.Logf("TestJSON : expected [%v] actual [%v]", string(expected), string(actual[:len(actual)-1]))
+	actual = actual[:len(actual)-1]
+	if string(actual) != string(expected) {
+		t.Logf("expected [%v] actual [%v]", string(expected), string(actual))
 		t.Fail()
+		return
 	}
 }

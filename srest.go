@@ -1,9 +1,9 @@
 // Package srest contains utilyties for sites creation and web services.
 /*
 	RESTfuler interface:
-		Create(w http.ResponseWriter, r *http.Request)
 		One(w http.ResponseWriter, r *http.Request)
 		List(w http.ResponseWriter, r *http.Request)
+		Create(w http.ResponseWriter, r *http.Request)
 		Update(w http.ResponseWriter, r *http.Request)
 		Delete(w http.ResponseWriter, r *http.Request)
 
@@ -53,7 +53,6 @@ import (
 
 	"github.com/bmizerany/pat"
 	"github.com/gorilla/schema"
-	// "github.com/braintree/manners"
 )
 
 var (
@@ -62,23 +61,38 @@ var (
 
 	// DefaultFuncMap can be used with LoadViews for common template tasks like:
 	//
-	// Cap: capitalize
+	// cap: capitalize strings
+	// eqs: compare value of two types.
 	DefaultFuncMap = deffuncmap()
 
-	errModeler          = errors.New("srest: modeler interface not found")
-	errTemplatesInited  = errors.New("srest: templates already inited")
-	errTemplatesNil     = errors.New("srest: not templates found")
-	errTemplateNotFound = errors.New("srest: template not found")
+	// ErrModeler error returned when modeler interface is
+	// not implemented.
+	ErrModeler = errors.New("srest: modeler interface not found")
+
+	// ErrTemplatesInited error returned when LoadViews
+	// function is called twice.
+	ErrTemplatesInited = errors.New("srest: templates already inited")
+
+	// ErrTemplatesNil error returned when not template files
+	// were loaded.
+	ErrTemplatesNil = errors.New("srest: not templates found")
+
+	// ErrTemplateNotFound error returned when template name
+	// is not present.
+	ErrTemplateNotFound = errors.New("srest: template not found")
 )
 
 func deffuncmap() template.FuncMap {
-	// TODO; add common functions for templates
 	return template.FuncMap{
 		"cap": func(s string) string {
 			if len(s) < 1 {
 				return s
 			}
 			return strings.ToUpper(s[:1]) + s[1:]
+		},
+		// eqs validates x and y are equal no matter type.
+		"eqs": func(x, y interface{}) bool {
+			return fmt.Sprintf("%v", x) == fmt.Sprintf("%v", y)
 		},
 	}
 }
@@ -91,36 +105,108 @@ type Options struct {
 }
 
 var (
-	// DefaultConf contains default configutarion for development running.
+	// DefaultConf contains default configuration without TLS.
 	DefaultConf = &Options{
 		UseTLS: false,
 	}
 )
 
-// Multi struct.
-type Multi struct {
+// SREST struct.
+type SREST struct {
 	Mux     *pat.PatternServeMux
 	Options *Options
 }
 
 // New returns a new server.
-func New(options *Options) *Multi {
+func New(options *Options) *SREST {
 	if options == nil {
 		options = DefaultConf
 	}
-	m := &Multi{
+	m := &SREST{
 		Mux:     pat.New(),
 		Options: options,
 	}
 	return m
 }
 
+// Get wrapper useful for add middleware like Use method.
+func (m *SREST) Get(uri string, hf http.Handler, mws ...func(http.Handler) http.Handler) {
+	m.Mux.Get(uri, chainHandler(hf, mws...))
+}
+
+// Post wrapper useful for add middleware like Use method.
+func (m *SREST) Post(uri string, hf http.Handler, mws ...func(http.Handler) http.Handler) {
+	m.Mux.Post(uri, chainHandler(hf, mws...))
+}
+
+// Put wrapper useful for add middleware like Use method.
+func (m *SREST) Put(uri string, hf http.Handler, mws ...func(http.Handler) http.Handler) {
+	m.Mux.Put(uri, chainHandler(hf, mws...))
+}
+
+// Del wrapper useful for add middleware like Use method.
+func (m *SREST) Del(uri string, hf http.Handler, mws ...func(http.Handler) http.Handler) {
+	m.Mux.Del(uri, chainHandler(hf, mws...))
+}
+
+// Use receives a RESTfuler interface and generates endpoints for:
+//
+// GET /:id
+// GET /
+// POST /
+// PUT /:id
+// DELETE /:id
+func (m *SREST) Use(uri string, n RESTfuler, mws ...func(http.Handler) http.Handler) {
+	uri = path.Clean(uri)
+	m.Get(uri+"/:id", http.HandlerFunc(n.One), mws...)
+	m.Get(uri, http.HandlerFunc(n.List), mws...)
+	m.Post(uri, http.HandlerFunc(n.Create), mws...)
+	m.Put(uri+"/:id", http.HandlerFunc(n.Update), mws...)
+	m.Del(uri+"/:id", http.HandlerFunc(n.Delete), mws...)
+}
+
+// Run start a server listening with http.ListenAndServe or http.ListenAndServeTLS
+// returns a channel bind it to SIGTERM and SIGINT signal
+// you will block this way: <-m.Run()
+func (m *SREST) Run(port int) chan os.Signal {
+	// TODO; change logic to allow server stop without leaking a goroutine and handle graceful shutdown.
+	c := make(chan os.Signal)
+	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		addrs := fmt.Sprintf(":%v", port)
+		var err error
+		if m.Options.UseTLS {
+			log.Printf("srest: Run %v", addrs)
+			err = http.ListenAndServeTLS(addrs, m.Options.TLSCer, m.Options.TLSKey, m.Mux)
+		} else {
+			log.Printf("srest: Run %v", addrs)
+			err = http.ListenAndServe(addrs, m.Mux)
+		}
+		if err != nil {
+			log.Printf("srest: Run : ListenAndServe : err [%s]", err)
+		}
+	}()
+	return c
+}
+
+// Debug enables template files reload on every request.
+func (m *SREST) Debug(ok bool) {
+	debug = ok
+}
+
+// Debug enables template files reload on every request.
+func Debug(ok bool) {
+	debug = ok
+}
+
 // Static handler.
 //
 // Usage:
-// Get("/public/", Static("/public/", "mydir")) slashes are important!
+// Get("/public", Static("/public", "mydir"))
 func Static(uri, dir string) http.Handler {
-	return http.StripPrefix(path.Clean(uri), http.FileServer(http.Dir(dir)))
+	uri = path.Clean(uri) + "/"
+	dir = path.Clean(dir) + "/"
+	return http.StripPrefix(uri, http.FileServer(http.Dir(dir)))
 }
 
 func chainHandler(fh http.Handler, mws ...func(http.Handler) http.Handler) http.Handler {
@@ -139,76 +225,6 @@ func chainHandler(fh http.Handler, mws ...func(http.Handler) http.Handler) http.
 	return h
 }
 
-// Get wrapper useful for add middleware like Use method.
-func (m *Multi) Get(uri string, hf http.Handler, mws ...func(http.Handler) http.Handler) {
-	m.Mux.Get(uri, chainHandler(hf, mws...))
-}
-
-// Post wrapper useful for add middleware like Use method.
-func (m *Multi) Post(uri string, hf http.Handler, mws ...func(http.Handler) http.Handler) {
-	m.Mux.Post(uri, chainHandler(hf, mws...))
-}
-
-// Put wrapper useful for add middleware like Use method.
-func (m *Multi) Put(uri string, hf http.Handler, mws ...func(http.Handler) http.Handler) {
-	m.Mux.Put(uri, chainHandler(hf, mws...))
-}
-
-// Del wrapper useful for add middleware like Use method.
-func (m *Multi) Del(uri string, hf http.Handler, mws ...func(http.Handler) http.Handler) {
-	m.Mux.Del(uri, chainHandler(hf, mws...))
-}
-
-func chainHandlerFunc(fh http.HandlerFunc, mws ...func(http.Handler) http.Handler) http.Handler {
-	return chainHandler(http.HandlerFunc(fh), mws...)
-}
-
-// Use adds endpoints RESTful
-func (m *Multi) Use(uri string, n RESTfuler, mws ...func(http.Handler) http.Handler) {
-	uri = path.Clean(uri)
-	m.Mux.Get(uri+"/:id", chainHandlerFunc(n.One, mws...))
-	m.Mux.Get(uri, chainHandlerFunc(n.List, mws...))
-	m.Mux.Post(uri, chainHandlerFunc(n.Create, mws...))
-	m.Mux.Put(uri+"/:id", chainHandlerFunc(n.Update, mws...))
-	m.Mux.Del(uri+"/:id", chainHandlerFunc(n.Delete, mws...))
-}
-
-// Run start a server listening with http.ListenAndServe or http.ListenAndServeTLS
-// returns a channel bind it to SIGTERM and SIGINT signal
-// you will block this way: <-m.Run()
-func (m *Multi) Run(port int) chan os.Signal {
-	// TODO; change logic to allow server stop without leaking a goroutine and handle graceful shutdown.
-	c := make(chan os.Signal)
-	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
-	go func() {
-		addrs := fmt.Sprintf(":%v", port)
-		var err error
-		if m.Options.UseTLS {
-			log.Printf("srest: Run %v", addrs)
-			// err = manners.ListenAndServeTLS(addrs, m.Options.TLSCer, m.Options.TLSKey, m.Mux)
-			err = http.ListenAndServeTLS(addrs, m.Options.TLSCer, m.Options.TLSKey, m.Mux)
-		} else {
-			log.Printf("srest: Run %v", addrs)
-			// err = manners.ListenAndServe(addrs, m.Mux)
-			err = http.ListenAndServe(addrs, m.Mux)
-		}
-		if err != nil {
-			log.Printf("srest: Run : ListenAndServe : err [%s]", err)
-		}
-	}()
-	return c
-}
-
-// Close wrapper for manners.Close()
-func (m *Multi) Close() {
-	// manners.Close()
-}
-
-// Debug enables templates reload with every petition.
-func (m *Multi) Debug(ok bool) {
-	debug = ok
-}
-
 // RESTfuler interface
 type RESTfuler interface {
 	Create(w http.ResponseWriter, r *http.Request)
@@ -219,6 +235,7 @@ type RESTfuler interface {
 }
 
 var (
+	// schDecoder default gorilla schema decoder.
 	schDecoder = schema.NewDecoder()
 )
 
@@ -231,32 +248,34 @@ func Bind(vars url.Values, dst interface{}) error {
 	// check model is valid
 	mo, ok := dst.(Modeler)
 	if !ok {
-		return errModeler
+		return ErrModeler
 	}
-	if err := mo.IsValid(); err != nil {
-		return fmt.Errorf("srest: %v", err)
-	}
-	return nil
+	return mo.IsValid()
 }
 
-// JSON func.
+// JSON writes v to response writer.
 func JSON(w http.ResponseWriter, v interface{}) error {
 	w.Header().Set("Content-Type", "application/json")
 	return json.NewEncoder(w).Encode(v)
 }
 
 var (
+	// templates collection.
 	templates  = map[string]*template.Template{}
 	tmplInited bool
 	mut        sync.RWMutex
 )
 
-// LoadViews func
+// LoadViews read html files on dir tree and parses it
+// as templates.
+// In order to render templates you need to call Render
+// function passing <file.html> or <subdir>/<file.html>
+// as name for template.
 //
-// funcMap overwrites DefaultFuncMap
+// funcMap will overwrite DefaultFuncMap.
 func LoadViews(dir string, funcMap template.FuncMap) error {
 	if tmplInited {
-		return errTemplatesInited
+		return ErrTemplatesInited
 	}
 
 	dir = filepath.Clean(dir)
@@ -268,8 +287,8 @@ func LoadViews(dir string, funcMap template.FuncMap) error {
 		// take template name from subdir+filename
 		tname := strings.Replace(name, dir+"/", "", -1)
 		ext := filepath.Ext(name)
+		// ommit files not .html
 		if ext != ".html" {
-			// We need to ommit file is not html
 			return nil
 		}
 		b, err := ioutil.ReadFile(name)
@@ -299,10 +318,14 @@ func LoadViews(dir string, funcMap template.FuncMap) error {
 }
 
 // Render writes a template to http response.
-func Render(w http.ResponseWriter, view string, v interface{}) error {
+// In order to render templates you need to call Render
+// function passing <file.html> or <subdir>/<file.html>
+// as name for template.
+func Render(w http.ResponseWriter, name string, v interface{}) error {
 	// for now use a mutex, later implementations can use sync.Pool of templates.
 	mut.RLock()
 	defer mut.RUnlock()
+
 	if debug {
 		// clean templates
 		for k := range templates {
@@ -311,32 +334,33 @@ func Render(w http.ResponseWriter, view string, v interface{}) error {
 		tmplInited = false
 		// load templates again
 		// this generates a race condition. TODO; check later if a really trouble
-		// on debug mode, this is not expected to be turned on to production.
+		// on debug mode, this is not expected to be turned on into production.
 		err := LoadViews(templatesDir, DefaultFuncMap)
 		if err != nil {
 			return err
 		}
 	}
 	if !tmplInited {
-		return errTemplatesNil
+		return ErrTemplatesNil
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
+	// write template to buffer to make sure is working.
 	var buf bytes.Buffer
-	t, ok := templates[view]
+	t, ok := templates[name]
 	if !ok {
+		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("template not found"))
-		return errTemplateNotFound
+		return ErrTemplateNotFound
 	}
-	err := t.ExecuteTemplate(&buf, view, v)
+	err := t.ExecuteTemplate(&buf, name, v)
 	if err != nil {
 		return err
 	}
+	// buffer writing was done without errors. Write to http
+	// response.
 	_, err = buf.WriteTo(w)
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 // Modeler interface
