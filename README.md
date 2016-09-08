@@ -1,12 +1,6 @@
-# Simple RESTful toolkit
+#### Simple RESTful toolkit.
 
-[![License MIT](https://img.shields.io/npm/l/express.svg)](http://opensource.org/licenses/MIT)
-[![Build Status](https://travis-ci.org/jimmy-go/srest.svg?branch=master)](https://travis-ci.org/jimmy-go/srest)
-[![Go Report Card](https://goreportcard.com/badge/github.com/jimmy-go/srest)](https://goreportcard.com/report/github.com/jimmy-go/srest)
-[![GoDoc](http://godoc.org/github.com/jimmy-go/srest?status.png)](http://godoc.org/github.com/jimmy-go/srest)
-[![Coverage Status](https://coveralls.io/repos/github/jimmy-go/srest/badge.svg?branch=master)](https://coveralls.io/github/jimmy-go/srest?branch=master)
-
-srest goal it's help you build sites and clear RESTful APIs webservices.
+Srest goal it's help you build sites and clear RESTful APIs webservices.
 Without enslave you to complicated frameworks rules.
 It's a thin layer over other useful toolkits:
 
@@ -14,53 +8,32 @@ It's a thin layer over other useful toolkits:
 
 [gorilla/schema](https://github.com/gorilla/schema)
 
-Features:
+#####Features:
 * Endpoint declaration with middleware support.
 * Input model validation.
 * Templates made easy (and faster).
 * Util for Fast to build Stress tests (still in development).
 
-----
+_Current version is under 1.0 some breaking changes can happen._
 
-Current version is under 1.0 some breaking changes can happen.
+[![License MIT](https://img.shields.io/npm/l/express.svg)](http://opensource.org/licenses/MIT)
+[![Build Status](https://travis-ci.org/jimmy-go/srest.svg?branch=master)](https://travis-ci.org/jimmy-go/srest)
+[![Go Report Card](https://goreportcard.com/badge/github.com/jimmy-go/srest)](https://goreportcard.com/report/github.com/jimmy-go/srest)
+[![GoDoc](http://godoc.org/github.com/jimmy-go/srest?status.png)](http://godoc.org/github.com/jimmy-go/srest)
+[![Coverage Status](https://coveralls.io/repos/github/jimmy-go/srest/badge.svg?branch=master)](https://coveralls.io/github/jimmy-go/srest?branch=master)
 
-Install:
+#####Install:
 ```
-go get github.com/jimmy-go/srest
+go get gopkg.in/jimmy-go/srest.v0
 ```
 
-Usage:
+#####Usage:
 ```
     // declare a new srest without TLS configuration.
     m := srest.New(nil)
 
     // static server endpoint.
 	m.Get("/public", srest.Static("/public/", PathToMyDir))
-
-    // friends.New() return a struct that satisfies RESTfuler.
-    // generates endpoints:
-    // GET     /v1/api/friends
-    // GET     /v1/api/friends/:id
-    // POST    /v1/api/friends
-    // PUT     /v1/api/friends/:id
-    // DELETE  /v1/api/friends/:id
-    m.Use("/v1/api/friends", friends.New())
-    // with middlewares
-    m.Use("/v1/api/friends", friends.New(), Mid1, Mid2, Mid3)
-
-    // for custom endpoints you can use .Get .Post .Put
-    // and .Del methods
-    // you can pass middlewares too.
-    m.Get("/custom", myHTTPHandler, Mid1, Mid2, Mid3)
-
-    // you can access mux directly too.
-    // (but you can't add middlewares easily this way.)
-    m.Mux.Post("/me", myHTTPHandlerFunc)
-
-    // Run call http.ListenAndServe or ListenAndServeTLS
-    // (view srest.Options for TLS config)
-    // until SIGTERM or SIGINT signal.
-    <-m.Run(55555)
 
     // when you call Use Method in srest a RESTfuler interface
     // is required.
@@ -71,6 +44,32 @@ Usage:
         Update(w http.ResponseWriter, r *http.Request)
         Delete(w http.ResponseWriter, r *http.Request)
     }
+
+    // Sample struct satisfies RESTfuler.
+    // generates endpoints:
+    // GET     /v1/api/friends
+    // GET     /v1/api/friends/:id
+    // POST    /v1/api/friends
+    // PUT     /v1/api/friends/:id
+    // DELETE  /v1/api/friends/:id
+    m.Use("/v1/api/friends", &Sample{})
+    // with middlewares
+    m.Use("/v1/api/friends", &Sample{}, Mid1, Mid2, Mid3)
+
+    // for custom endpoints you can use .Get .Post .Put
+    // and .Del methods
+    // you can pass middlewares too.
+    m.Get("/custom", myHTTPHandler, Mid1, Mid2, Mid3)
+
+    // you can access mux directly too.
+    // (but you can't add middlewares this way.)
+    m.Mux.Post("/me", myHTTPHandlerFunc)
+
+    // Run calls http.ListenAndServe or ListenAndServeTLS
+    // until SIGTERM or SIGINT signal.
+    // (view srest.Options for TLS config)
+    <-m.Run(55555)
+    // close database connections.
 ```
 
 You need an easy way for params validation? take a look at Modeler interface
@@ -80,7 +79,7 @@ type Modeler interface {
 }
 ```
 
-example:
+Example:
 ```
 // my model
 type Params struct{
@@ -105,14 +104,14 @@ func(w http.ResponseWriter, r *http.Request) {
 }
 ```
 
-Working with html templates:
+##### Working with html templates:
 ```
     // declare a new srest without TLS configuration.
     m := srest.New(nil)
 
     // load templates
     err := srest.LoadViews(PathToDir, srest.DefaultFuncMap)
-    check errors...
+    // check errors...
 
     // start server as normal
     <-m.Run(7070)
@@ -121,13 +120,13 @@ Working with html templates:
     func(w http.ResponseWriter, r *http.Request) {
         v := map[string]interface{}{"some":"A"}
         err := srest.Render(w, "home.html", v)
-        check errors...
+        // check errors...
     }
 ```
 
 Take a look at the working example with all features on examples dir.
 
-#### ToDo:
+#####ToDo:
 
 * Benchmark for Render. If needed implement Render with templates pool.
 * Add support for status 503.
@@ -135,7 +134,7 @@ Take a look at the working example with all features on examples dir.
 * Complete module stress and example stress.
 * Make stress tests using the package srest/stress.
 
-##### License
+#####License:
 
 The MIT License (MIT)
 
