@@ -1,3 +1,28 @@
+// Package friends contains friends endpoint
+// API
+// /v1/api/friends GET
+//
+// The MIT License (MIT)
+//
+// Copyright (c) 2016 Angel Del Castillo
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
 package friends
 
 import (
@@ -5,7 +30,7 @@ import (
 	"net/http"
 
 	"github.com/jimmy-go/srest"
-	"github.com/jimmy-go/srest/examples/simple/dai"
+	"github.com/satori/go.uuid"
 )
 
 // Friend model
@@ -49,13 +74,7 @@ func (a *API) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var id string
-	err = dai.Db.Get(&id, "INSERT INTO users (name, email) VALUES($1, $2) RETURNING id", m.Name, m.Email)
-	if err != nil {
-		srest.JSON(w, &E{Error: err.Error()})
-		return
-	}
-
+	id := uuid.NewV4().String()
 	srest.JSON(w, "item created: "+id)
 }
 
@@ -68,11 +87,9 @@ func (a *API) One(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var u Friend
-	err := dai.Db.Get(&u, "SELECT name, email FROM users WHERE id=$1", id)
-	if err != nil {
-		srest.JSON(w, &E{Error: err.Error()})
-		return
+	u := Friend{
+		Name:  "some name",
+		Email: "some email",
 	}
 
 	srest.JSON(w, &Result{u})
@@ -81,11 +98,11 @@ func (a *API) One(w http.ResponseWriter, r *http.Request) {
 // List func
 func (a *API) List(w http.ResponseWriter, r *http.Request) {
 	var list []*Friend
-	err := dai.Db.Select(&list, "SELECT name, email FROM users LIMIT 3")
-	if err != nil {
-		srest.JSON(w, &E{Error: err.Error()})
-		return
-	}
+
+	list = append(list, &Friend{
+		Name:  "some name",
+		Email: "some email",
+	})
 
 	srest.JSON(w, &Result{list})
 }
