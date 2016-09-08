@@ -1,7 +1,29 @@
 // Package main contains full working example for srest.
-// EXAMPLE PROJECT
+//		EXAMPLE PROJECT
 // Task list (To-Do) with i18n, i10n and user sessions
 // controlled by sqlite.
+//
+// The MIT License (MIT)
+//
+// Copyright (c) 2016 Angel Del Castillo
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
 package main
 
 import (
@@ -9,7 +31,6 @@ import (
 	"log"
 	"net/http"
 	"runtime"
-	"time"
 
 	"github.com/jimmy-go/srest"
 	"github.com/jimmy-go/srest/examples/simple/api/friends"
@@ -18,12 +39,10 @@ import (
 )
 
 var (
-	port    = flag.Int("port", 0, "Listen port")
-	dbf     = flag.String("db", "", "Database connection url.")
-	views   = flag.String("templates", "", "Templates files dir.")
-	static  = flag.String("static", "", "Static dir.")
-	workers = flag.Int("workers", 1, "Worker pool size.")
-	queue   = flag.Int("queue", 10, "Queue length.")
+	port       = flag.Int("port", 0, "Listen port")
+	connectURL = flag.String("db", "", "PostgreSQL connection url.")
+	views      = flag.String("templates", "", "Templates files dir.")
+	static     = flag.String("static", "", "Static dir.")
 )
 
 func main() {
@@ -32,16 +51,10 @@ func main() {
 	log.SetFlags(0)
 	log.Printf("templates dir [%v]", *views)
 	log.Printf("static dir [%v]", *static)
+	log.SetFlags(log.Lshortfile)
 
-	// connect to database
-	conf := &dai.Options{
-		URL:     *dbf,
-		Workers: *workers,
-		Queue:   *queue,
-	}
-	now := time.Now()
-	err := dai.Connect(conf)
-	log.Printf("Database connection time: [%s]", time.Since(now))
+	// connect to database. Mock database.
+	err := dai.Connect(*connectURL)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -59,7 +72,7 @@ func main() {
 	m.Use("/home", &home.API{})
 	<-m.Run(*port)
 	log.Printf("Closing database connections")
-	dai.Db.Close()
+	dai.Close()
 	log.Printf("Done")
 }
 

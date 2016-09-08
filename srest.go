@@ -131,21 +131,25 @@ func New(options *Options) *SREST {
 
 // Get wrapper useful for add middleware like Use method.
 func (m *SREST) Get(uri string, hf http.Handler, mws ...func(http.Handler) http.Handler) {
+	uri = clean(uri)
 	m.Mux.Get(uri, chainHandler(hf, mws...))
 }
 
 // Post wrapper useful for add middleware like Use method.
 func (m *SREST) Post(uri string, hf http.Handler, mws ...func(http.Handler) http.Handler) {
+	uri = clean(uri)
 	m.Mux.Post(uri, chainHandler(hf, mws...))
 }
 
 // Put wrapper useful for add middleware like Use method.
 func (m *SREST) Put(uri string, hf http.Handler, mws ...func(http.Handler) http.Handler) {
+	uri = clean(uri)
 	m.Mux.Put(uri, chainHandler(hf, mws...))
 }
 
 // Del wrapper useful for add middleware like Use method.
 func (m *SREST) Del(uri string, hf http.Handler, mws ...func(http.Handler) http.Handler) {
+	uri = clean(uri)
 	m.Mux.Del(uri, chainHandler(hf, mws...))
 }
 
@@ -157,7 +161,7 @@ func (m *SREST) Del(uri string, hf http.Handler, mws ...func(http.Handler) http.
 // PUT /:id
 // DELETE /:id
 func (m *SREST) Use(uri string, n RESTfuler, mws ...func(http.Handler) http.Handler) {
-	uri = path.Clean(uri)
+	uri = clean(uri)
 	m.Get(uri+"/:id", http.HandlerFunc(n.One), mws...)
 	m.Get(uri, http.HandlerFunc(n.List), mws...)
 	m.Post(uri, http.HandlerFunc(n.Create), mws...)
@@ -199,6 +203,11 @@ func Debug(ok bool) {
 	debug = ok
 }
 
+// clean uri path.
+func clean(uri string) string {
+	return path.Clean(uri) + "/"
+}
+
 // Static handler.
 //
 // Usage:
@@ -206,6 +215,7 @@ func Debug(ok bool) {
 func Static(uri, dir string) http.Handler {
 	uri = path.Clean(uri) + "/"
 	dir = path.Clean(dir) + "/"
+	log.Printf("uri [%v] dir [%v]", uri, dir)
 	return http.StripPrefix(uri, http.FileServer(http.Dir(dir)))
 }
 
