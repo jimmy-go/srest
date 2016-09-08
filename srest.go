@@ -129,32 +129,37 @@ func New(options *Options) *SREST {
 	return m
 }
 
-// Get wrapper useful for add middleware like Use method.
+// Get wrapper allows GET endpoints and middlewares. It will
+// generate endpoints for `resource` and `resource/` because
+// some services requires both endpoints.
 func (m *SREST) Get(uri string, hf http.Handler, mws ...func(http.Handler) http.Handler) {
-	uri = clean(uri)
-	m.Mux.Get(uri, chainHandler(hf, mws...))
+	// FIXME; allow both o remove one?
+	m.Mux.Get(path.Clean(uri), chainHandler(hf, mws...))
+	m.Mux.Get(path.Clean(uri)+"/", chainHandler(hf, mws...))
 }
 
 // Post wrapper useful for add middleware like Use method.
 func (m *SREST) Post(uri string, hf http.Handler, mws ...func(http.Handler) http.Handler) {
+<<<<<<< HEAD
 <<<<<<< HEAD
 	// FIXME; make test for clean POST endpoint.
 =======
 >>>>>>> release/v0.0.2
 	uri = filepath.Clean(uri)
 	m.Mux.Post(uri, chainHandler(hf, mws...))
+=======
+	m.Mux.Post(path.Clean(uri), chainHandler(hf, mws...))
+>>>>>>> release/v0.0.3
 }
 
 // Put wrapper useful for add middleware like Use method.
 func (m *SREST) Put(uri string, hf http.Handler, mws ...func(http.Handler) http.Handler) {
-	uri = clean(uri)
-	m.Mux.Put(uri, chainHandler(hf, mws...))
+	m.Mux.Put(path.Clean(uri), chainHandler(hf, mws...))
 }
 
 // Del wrapper useful for add middleware like Use method.
 func (m *SREST) Del(uri string, hf http.Handler, mws ...func(http.Handler) http.Handler) {
-	uri = clean(uri)
-	m.Mux.Del(uri, chainHandler(hf, mws...))
+	m.Mux.Del(path.Clean(uri), chainHandler(hf, mws...))
 }
 
 // Use receives a RESTfuler interface and generates endpoints for:
@@ -165,7 +170,6 @@ func (m *SREST) Del(uri string, hf http.Handler, mws ...func(http.Handler) http.
 // PUT /:id
 // DELETE /:id
 func (m *SREST) Use(uri string, n RESTfuler, mws ...func(http.Handler) http.Handler) {
-	uri = clean(uri)
 	m.Get(uri+"/:id", http.HandlerFunc(n.One), mws...)
 	m.Get(uri, http.HandlerFunc(n.List), mws...)
 	m.Post(uri, http.HandlerFunc(n.Create), mws...)
@@ -204,14 +208,6 @@ func (m *SREST) Debug(ok bool) {
 // Debug enables template files reload on every request.
 func Debug(ok bool) {
 	debug = ok
-}
-
-// clean uri path.
-func clean(uri string) string {
-	if uri == "/" {
-		return uri
-	}
-	return path.Clean(uri) + "/"
 }
 
 // Static handler.
