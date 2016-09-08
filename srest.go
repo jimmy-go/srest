@@ -178,12 +178,11 @@ func (m *SREST) Run(port int) chan os.Signal {
 	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		addrs := fmt.Sprintf(":%v", port)
+		log.Printf("srest: Run %v", addrs)
 		var err error
 		if m.Options.UseTLS {
-			log.Printf("srest: Run %v", addrs)
 			err = http.ListenAndServeTLS(addrs, m.Options.TLSCer, m.Options.TLSKey, m.Mux)
 		} else {
-			log.Printf("srest: Run %v", addrs)
 			err = http.ListenAndServe(addrs, m.Mux)
 		}
 		if err != nil {
@@ -205,6 +204,9 @@ func Debug(ok bool) {
 
 // clean uri path.
 func clean(uri string) string {
+	if uri == "/" {
+		return uri
+	}
 	return path.Clean(uri) + "/"
 }
 
@@ -215,7 +217,6 @@ func clean(uri string) string {
 func Static(uri, dir string) http.Handler {
 	uri = path.Clean(uri) + "/"
 	dir = path.Clean(dir) + "/"
-	log.Printf("uri [%v] dir [%v]", uri, dir)
 	return http.StripPrefix(uri, http.FileServer(http.Dir(dir)))
 }
 
