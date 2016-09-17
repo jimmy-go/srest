@@ -134,23 +134,23 @@ func New(options *Options) *SREST {
 // some services requires both endpoints.
 func (m *SREST) Get(uri string, hf http.Handler, mws ...func(http.Handler) http.Handler) {
 	// FIXME; allow both o remove one?
-	m.Mux.Get(path.Clean(uri), chainHandler(hf, mws...))
-	m.Mux.Get(path.Clean(uri)+"/", chainHandler(hf, mws...))
+	m.Mux.Get(path.Clean(uri), ChainHandler(hf, mws...))
+	m.Mux.Get(path.Clean(uri)+"/", ChainHandler(hf, mws...))
 }
 
 // Post wrapper useful for add middleware like Use method.
 func (m *SREST) Post(uri string, hf http.Handler, mws ...func(http.Handler) http.Handler) {
-	m.Mux.Post(path.Clean(uri), chainHandler(hf, mws...))
+	m.Mux.Post(path.Clean(uri), ChainHandler(hf, mws...))
 }
 
 // Put wrapper useful for add middleware like Use method.
 func (m *SREST) Put(uri string, hf http.Handler, mws ...func(http.Handler) http.Handler) {
-	m.Mux.Put(path.Clean(uri), chainHandler(hf, mws...))
+	m.Mux.Put(path.Clean(uri), ChainHandler(hf, mws...))
 }
 
 // Del wrapper useful for add middleware like Use method.
 func (m *SREST) Del(uri string, hf http.Handler, mws ...func(http.Handler) http.Handler) {
-	m.Mux.Del(path.Clean(uri), chainHandler(hf, mws...))
+	m.Mux.Del(path.Clean(uri), ChainHandler(hf, mws...))
 }
 
 // Use receives a RESTfuler interface and generates endpoints for:
@@ -211,7 +211,8 @@ func Static(uri, dir string) http.Handler {
 	return http.StripPrefix(uri, http.FileServer(http.Dir(dir)))
 }
 
-func chainHandler(fh http.Handler, mws ...func(http.Handler) http.Handler) http.Handler {
+// ChainHandler concats multiple handlers in one http.Handler.
+func ChainHandler(fh http.Handler, mws ...func(http.Handler) http.Handler) http.Handler {
 	// no middlewares then return handler
 	if len(mws) < 1 {
 		return fh
