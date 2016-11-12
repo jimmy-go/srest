@@ -44,7 +44,7 @@ go get gopkg.in/jimmy-go/srest.v0
         Delete(w http.ResponseWriter, r *http.Request)
     }
 
-    // Sample struct satisfies RESTfuler and generates endpoints:
+    // Sample struct implements srest.RESTfuler and generates endpoints:
     // GET     /v1/api/friends
     // GET     /v1/api/friends/:id
     // POST    /v1/api/friends
