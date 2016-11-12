@@ -1,7 +1,7 @@
-#### Simple RESTful toolkit.
+####Simple RESTful and sites toolkit.
 
-Srest goal it's help you build sites and clear RESTful APIs webservices.
-Without enslave you to complicated frameworks rules.
+Srest goal it's help you build sites and clear RESTful webservices without enslave
+you to complicated frameworks rules.
 It's a thin layer over other useful toolkits:
 
 [bmizerany/pat](https://github.com/bmizerany/pat)
