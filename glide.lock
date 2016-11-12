@@ -1,0 +1,10 @@
+hash: 8289fa82d5522f3d5c514e7e0a250b127b4ef3d5bf4ca4fabea969c43f138ad8
+updated: 2016-11-12T04:40:07.346322702-06:00
+imports:
+- name: github.com/bmizerany/pat
+  version: c068ca2f0aacee5ac3681d68e4d0a003b7d1fd2c
+- name: github.com/gorilla/schema
+  version: 0164a00ab4cd01d814d8cd5bf63fd9fcea30e23b
+- name: github.com/satori/go.uuid
+  version: b061729afc07e77a8aa4fad0a2fd840958f1942a
+testImports: []
