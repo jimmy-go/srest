@@ -69,8 +69,7 @@ go get gopkg.in/jimmy-go/srest.v0
     m.Get("/custom", myHTTPHandler, c...)
     m.Get("/custom2", myHTTPHandler, c...)
 
-    // you can access mux directly too.
-    // (but you can't add middlewares this way.)
+    // you can access mux directly too. (but you can't add middlewares this way.)
     m.Mux.Post("/me", myHTTPHandlerFunc)
 
     // Run calls http.ListenAndServe or ListenAndServeTLS
