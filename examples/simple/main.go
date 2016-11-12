@@ -1,4 +1,4 @@
-// Package main contains a srest example using rpc calls and RESTfuler interface.
+// Package main contains a srest example using Modeler interface, RESTfuler interface and passing middleware.
 package main
 
 import (
