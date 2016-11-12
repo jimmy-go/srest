@@ -52,12 +52,12 @@ go get gopkg.in/jimmy-go/srest.v0
     // DELETE  /v1/api/friends/:id
     m.Use("/v1/api/friends", &Sample{})
 
-    // last case with with middlewares
+    // last case with middlewares
     m.Use("/v1/api/friends", &Sample{}, Mid1, Mid2, Mid3)
 
-    // for custom endpoints you can use .Get .Post .Put
-    // and .Del methods
-    // you can pass middlewares too.
+    // for custom endpoints you can use Get Post Put
+    // and Del methods.
+    // You can pass middlewares too.
     m.Get("/custom", myHTTPHandler, Mid1, Mid2, Mid3)
 
     // another reusable way to pass middleware:
