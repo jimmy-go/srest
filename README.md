@@ -1,7 +1,7 @@
-#### Simple RESTful toolkit.
+####Simple RESTful and sites toolkit.
 
-Srest goal it's help you build sites and clear RESTful APIs webservices.
-Without enslave you to complicated frameworks rules.
+Srest goal it's help you build sites and clear RESTful webservices without enslave
+you to complicated frameworks rules.
 It's a thin layer over other useful toolkits:
 
 [bmizerany/pat](https://github.com/bmizerany/pat)
@@ -35,8 +35,7 @@ go get gopkg.in/jimmy-go/srest.v0
     // static server endpoint.
 	m.Get("/public", srest.Static("/public/", PathToMyDir))
 
-    // when you call Use Method in srest a RESTfuler interface
-    // is required.
+    // you must pass a RESTfuler interface in Use method.
     type RESTfuler interface {
         Create(w http.ResponseWriter, r *http.Request)
         One(w http.ResponseWriter, r *http.Request)
@@ -45,31 +44,38 @@ go get gopkg.in/jimmy-go/srest.v0
         Delete(w http.ResponseWriter, r *http.Request)
     }
 
-    // Sample struct satisfies RESTfuler.
-    // generates endpoints:
+    // Sample struct implements srest.RESTfuler and generates endpoints:
     // GET     /v1/api/friends
     // GET     /v1/api/friends/:id
     // POST    /v1/api/friends
     // PUT     /v1/api/friends/:id
     // DELETE  /v1/api/friends/:id
     m.Use("/v1/api/friends", &Sample{})
-    // with middlewares
+
+    // last case with middlewares
     m.Use("/v1/api/friends", &Sample{}, Mid1, Mid2, Mid3)
 
-    // for custom endpoints you can use .Get .Post .Put
-    // and .Del methods
-    // you can pass middlewares too.
+    // for custom endpoints you can use Get Post Put
+    // and Del methods.
+    // You can pass middlewares too.
     m.Get("/custom", myHTTPHandler, Mid1, Mid2, Mid3)
 
-    // you can access mux directly too.
-    // (but you can't add middlewares this way.)
+    // another reusable way to pass middleware:
+    c := []func(http.Handler) http.Handler{
+        Mid1,
+        Mid2,
+        Mid3,
+    }
+    m.Get("/custom", myHTTPHandler, c...)
+    m.Get("/custom2", myHTTPHandler, c...)
+
+    // you can access mux directly too. (but you can't add middlewares this way.)
     m.Mux.Post("/me", myHTTPHandlerFunc)
 
     // Run calls http.ListenAndServe or ListenAndServeTLS
-    // until SIGTERM or SIGINT signal.
-    // (view srest.Options for TLS config)
+    // until SIGTERM or SIGINT signal is received. (view srest.Options for TLS config)
     <-m.Run(55555)
-    // close database connections.
+    // ...close database connections.
 ```
 
 You need an easy way for params validation? take a look at Modeler interface
@@ -81,13 +87,13 @@ type Modeler interface {
 
 Example:
 ```
-// my model
+// Params implements srest.Modeler interface.
 type Params struct{
     Name string `schema:"name"`
     LastName string `schema:"last_name"`
 }
 
-// my model validation
+// IsValid implements srest.Modeler interface.
 func(m *Params) IsValid() error {
     if len(m.Name) < 1 {
         return errors.New("model: name is required")
@@ -97,30 +103,33 @@ func(m *Params) IsValid() error {
 
 // some handlerfunc
 func(w http.ResponseWriter, r *http.Request) {
+    r.ParseForm()
+
     var p Params
     // Bind binds url.Values to struct using gorilla schema
-    err := srest.Bind(r.PostForm, &p)
-    check errors...
+    err := srest.Bind(r.Form, &p)
+    // ...check errors
 }
 ```
 
 ##### Working with html templates:
 ```
-    // declare a new srest without TLS configuration.
-    m := srest.New(nil)
-
     // load templates
     err := srest.LoadViews(PathToDir, srest.DefaultFuncMap)
-    // check errors...
+    // ...check errors
+
+    // declare a new srest without TLS configuration.
+    m := srest.New(nil)
+    m.Get("/home", http.HandlerFunc(homeHandler))
 
     // start server as normal
     <-m.Run(7070)
 
     // some http handler func.
-    func(w http.ResponseWriter, r *http.Request) {
+    func homeHandler(w http.ResponseWriter, r *http.Request) {
         v := map[string]interface{}{"some":"A"}
         err := srest.Render(w, "home.html", v)
-        // check errors...
+        // ...check errors
     }
 ```
 
@@ -128,11 +137,8 @@ Take a look at the working example with all features on examples dir.
 
 #####ToDo:
 
-* Benchmark for Render. If needed implement Render with templates pool.
 * Add support for status 503.
-* Change example database to sqlite.
-* Complete module stress and example stress.
-* Make stress tests using the package srest/stress.
+* Stress util.
 
 #####License:
 

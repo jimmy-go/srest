@@ -271,11 +271,9 @@ var (
 	cmut sync.RWMutex
 )
 
-// LoadViews read html files on dir tree and parses it
-// as templates.
-// In order to render templates you need to call Render
-// function passing <file.html> or <subdir>/<file.html>
-// as name for template.
+// LoadViews read html files on dir tree and parses to templates.
+// In order to render templates you need to call Render function passing
+// <file.html> or <subdir>/<file.html> as name.
 //
 // funcMap will overwrite DefaultFuncMap.
 func LoadViews(dir string, funcMap template.FuncMap) error {
@@ -339,10 +337,11 @@ func LoadViews(dir string, funcMap template.FuncMap) error {
 	return nil
 }
 
-// Render writes a template to http response.
-// In order to render templates you need to call Render
-// function passing <file.html> or <subdir>/<file.html>
-// as name for template.
+// Render writes a template name to w.
+// In order to render templates you need to call Render function passing
+// <file.html> or <subdir>/<file.html> as name.
+//
+// Future implementations are ahead to improve render time without locking.
 func Render(w http.ResponseWriter, name string, v interface{}) error {
 	// for now use a mutex, later implementations can use sync.Pool of templates.
 	mut.Lock()
