@@ -36,13 +36,43 @@ package srest
 import (
 	"errors"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"runtime"
+	"runtime/debug"
 	"syscall"
 	"testing"
 )
+
+func TestMain(m *testing.M) {
+	dir, err := os.Getwd()
+	if err != nil {
+		log.Printf("get pwd : err [%s]", err)
+		return
+	}
+
+	tmplInited = false
+	funcm := deffuncmap()
+	err = LoadViews(dir+"/mock", funcm)
+	if err != nil {
+		log.Printf("LoadViews : err [%s]", err)
+		return
+	}
+
+	v := m.Run()
+	log.Printf("exit status [%v]", v)
+	gos := runtime.NumGoroutine()
+	if gos > 15 {
+		log.Printf("goroutines [%v]", gos)
+		debug.PrintStack()
+		panic("blocked goroutines")
+	}
+
+	os.Exit(v)
+}
 
 // API satisfies RESTfuler interface
 type API struct {
@@ -90,8 +120,7 @@ func TestBind(t *testing.T) {
 	var x Model
 	err := Bind(p, &x)
 	if err != nil {
-		t.Logf("bind err [%s]", err)
-		t.Fail()
+		t.Errorf("err [%s]", err)
 	}
 }
 
@@ -103,8 +132,7 @@ func TestBindFail(t *testing.T) {
 	}
 	err := Bind(p, &x)
 	if err == nil {
-		t.Logf("bind : err [%s]", err)
-		t.Fail()
+		t.Errorf("err [%s]", err)
 	}
 }
 
@@ -114,8 +142,7 @@ func TestModelerFail(t *testing.T) {
 	var x Modelfail
 	err := Bind(p, &x)
 	if err == nil {
-		t.Logf("bind : err [%s]", err)
-		t.Fail()
+		t.Errorf("err [%s]", err)
 	}
 }
 
@@ -124,8 +151,7 @@ func TestBindDecoderFail(t *testing.T) {
 	var x Modelfail
 	err := Bind(p, x)
 	if err == nil {
-		t.Logf("bind : err [%s]", err)
-		t.Fail()
+		t.Errorf("err [%s]", err)
 	}
 }
 
@@ -169,8 +195,7 @@ type Input struct {
 func TestMiddlewareTable(t *testing.T) {
 	defer func() {
 		if err := recover(); err != nil {
-			t.Logf("recover : err [%s]", err)
-			t.Fail()
+			t.Errorf("err [%s]", err)
 		}
 	}()
 	table := []TM{
@@ -287,21 +312,18 @@ func TestMiddlewareTable(t *testing.T) {
 
 		res, err := http.Get(ts.URL)
 		if err != nil {
-			t.Logf("get : err [%s]", err)
-			t.Fail()
+			t.Errorf("get : err [%s]", err)
 			continue
 		}
 		defer res.Body.Close()
 
 		body, err := ioutil.ReadAll(res.Body)
 		if err != nil {
-			t.Logf("get : err [%s]", err)
-			t.Fail()
+			t.Errorf("get : err [%s]", err)
 		}
 
 		if res.StatusCode != x.ExpectedStatusCode {
-			t.Logf("expected [%v] actual [%v]", x.ExpectedStatusCode, res.StatusCode)
-			t.Fail()
+			t.Errorf("expected [%v] actual [%v]", x.ExpectedStatusCode, res.StatusCode)
 		}
 
 		actual := string(body)
@@ -309,8 +331,7 @@ func TestMiddlewareTable(t *testing.T) {
 			actual = actual[:len(actual)-1]
 		}
 		if actual != x.ExpectedBody {
-			t.Logf("expected [%s] actual [%s]", x.ExpectedBody, actual)
-			t.Fail()
+			t.Errorf("expected [%s] actual [%s]", x.ExpectedBody, actual)
 		}
 
 		c := n.Run(x.Input.Port)
@@ -324,8 +345,7 @@ func TestLoadViews(t *testing.T) {
 	tmplInited = false
 	err := LoadViews("mock2fail", map[string]interface{}{})
 	if err != nil {
-		t.Logf("LoadViews : err [%s]", err)
-		t.Fail()
+		t.Errorf("LoadViews : err [%s]", err)
 	}
 }
 
@@ -333,24 +353,21 @@ func TestLoadViewsFail(t *testing.T) {
 	tmplInited = false
 	err := LoadViews("mock2fail", map[string]interface{}{})
 	if err != nil {
-		t.Logf("LoadViews : err [%s]", err)
-		t.Fail()
+		t.Errorf("LoadViews : err [%s]", err)
 	}
 }
 
 func TestRender(t *testing.T) {
 	dir, err := os.Getwd()
 	if err != nil {
-		t.Logf("get pwd : err [%s]", err)
-		t.Fail()
+		t.Errorf("get pwd : err [%s]", err)
 	}
 
 	tmplInited = false
 	funcm := deffuncmap()
 	err = LoadViews(dir+"/mock", funcm)
 	if err != nil {
-		t.Logf("LoadViews : err [%s]", err)
-		t.Fail()
+		t.Errorf("LoadViews : err [%s]", err)
 		return
 	}
 
@@ -360,15 +377,13 @@ func TestRender(t *testing.T) {
 	// {{cap "i am lowercase"}}-eqs:{{eqs 1 "1"}}{{cap ""}}
 	err = Render(w, "index.html", map[string]interface{}{"x": 1})
 	if err != nil {
-		t.Logf("Render : err [%s]", err)
-		t.Fail()
+		t.Errorf("Render : err [%s]", err)
 		return
 	}
 
 	actual, err := ioutil.ReadAll(w.Body)
 	if err != nil {
-		t.Logf("read body : err [%s]", err)
-		t.Fail()
+		t.Errorf("read body : err [%s]", err)
 		return
 	}
 
@@ -376,8 +391,7 @@ func TestRender(t *testing.T) {
 	// remove additional \r
 	actual = actual[:len(actual)-1]
 	if string(actual) != string(expected) {
-		t.Logf("expected [%s] actual [%s]", string(expected), string(actual))
-		t.Fail()
+		t.Errorf("expected [%s] actual [%s]", string(expected), string(actual))
 		return
 	}
 }
@@ -385,16 +399,14 @@ func TestRender(t *testing.T) {
 func TestRenderFail(t *testing.T) {
 	dir, err := os.Getwd()
 	if err != nil {
-		t.Logf("get pwd : err [%s]", err)
-		t.Fail()
+		t.Errorf("get pwd : err [%s]", err)
 	}
 
 	tmplInited = false
 	funcm := deffuncmap()
 	err = LoadViews(dir+"/mock", funcm)
 	if err != nil {
-		t.Logf("LoadViews : err [%s]", err)
-		t.Fail()
+		t.Errorf("LoadViews : err [%s]", err)
 		return
 	}
 
@@ -403,21 +415,18 @@ func TestRenderFail(t *testing.T) {
 	// index.html content will be: {{cap "i am lowercase"}}
 	err = Render(w, "notfound.html", map[string]interface{}{"x": 1})
 	if err != ErrTemplateNotFound {
-		t.Logf("Render : err [%s]", err)
-		t.Fail()
+		t.Errorf("Render : err [%s]", err)
 		return
 	}
 
 	actual, err := ioutil.ReadAll(w.Body)
 	if err != nil {
-		t.Logf("read body : err [%s]", err)
-		t.Fail()
+		t.Errorf("read body : err [%s]", err)
 		return
 	}
 	expected := []byte("template not found")
 	if string(actual) != string(expected) {
-		t.Logf("expected [%s] actual [%s]", string(expected), string(actual))
-		t.Fail()
+		t.Errorf("expected [%s] actual [%s]", string(expected), string(actual))
 		return
 	}
 }
@@ -425,16 +434,14 @@ func TestRenderFail(t *testing.T) {
 func TestRenderDebug(t *testing.T) {
 	dir, err := os.Getwd()
 	if err != nil {
-		t.Logf("get pwd : err [%s]", err)
-		t.Fail()
+		t.Errorf("get pwd : err [%s]", err)
 	}
 
 	tmplInited = false
 	funcm := deffuncmap()
 	err = LoadViews(dir+"/mock", funcm)
 	if err != nil {
-		t.Logf("LoadViews : err [%s]", err)
-		t.Fail()
+		t.Errorf("LoadViews : err [%s]", err)
 		return
 	}
 	Debug(true)
@@ -445,15 +452,13 @@ func TestRenderDebug(t *testing.T) {
 	// {{cap "i am lowercase"}}-eqs:{{eqs 1 "1"}}{{cap ""}}
 	err = Render(w, "index.html", map[string]interface{}{"x": 1})
 	if err != nil {
-		t.Logf("Render : err [%s]", err)
-		t.Fail()
+		t.Errorf("Render : err [%s]", err)
 		return
 	}
 
 	actual, err := ioutil.ReadAll(w.Body)
 	if err != nil {
-		t.Logf("read body : err [%s]", err)
-		t.Fail()
+		t.Errorf("read body : err [%s]", err)
 		return
 	}
 
@@ -461,8 +466,7 @@ func TestRenderDebug(t *testing.T) {
 	// remove additional \r
 	actual = actual[:len(actual)-1]
 	if string(actual) != string(expected) {
-		t.Logf("expected [%s] actual [%s]", string(expected), string(actual))
-		t.Fail()
+		t.Errorf("expected [%s] actual [%s]", string(expected), string(actual))
 		return
 	}
 }
@@ -471,21 +475,13 @@ func TestJSON(t *testing.T) {
 	w := httptest.NewRecorder()
 	err := JSON(w, `this is string`)
 	if err != nil {
-		t.Logf("JSON : err [%s]", err)
-		t.Fail()
+		t.Errorf("err [%s]", err)
 		return
 	}
-	actual, err := ioutil.ReadAll(w.Body)
-	if err != nil {
-		t.Logf("read body : err [%s]", err)
-		t.Fail()
-		return
-	}
+	actual := w.Body.String()
 	expected := []byte(`"this is string"`)
 	actual = actual[:len(actual)-1]
 	if string(actual) != string(expected) {
-		t.Logf("expected [%v] actual [%v]", string(expected), string(actual))
-		t.Fail()
-		return
+		t.Errorf("expected [%v] actual [%v]", string(expected), string(actual))
 	}
 }

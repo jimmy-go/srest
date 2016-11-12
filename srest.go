@@ -39,7 +39,6 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
@@ -56,7 +55,7 @@ import (
 )
 
 var (
-	debug        bool
+	srestDebug   bool
 	templatesDir string
 
 	// DefaultFuncMap can be used with LoadViews for common template tasks like:
@@ -193,12 +192,12 @@ func (m *SREST) Run(port int) chan os.Signal {
 
 // Debug enables template files reload on every request.
 func (m *SREST) Debug(ok bool) {
-	debug = ok
+	srestDebug = ok
 }
 
 // Debug enables template files reload on every request.
 func Debug(ok bool) {
-	debug = ok
+	srestDebug = ok
 }
 
 // Static handler.
@@ -266,7 +265,10 @@ var (
 	// templates collection.
 	templates  = map[string]*template.Template{}
 	tmplInited bool
-	mut        sync.RWMutex
+
+	mut  sync.RWMutex
+	xmut sync.Mutex
+	cmut sync.RWMutex
 )
 
 // LoadViews read html files on dir tree and parses it
@@ -277,16 +279,28 @@ var (
 //
 // funcMap will overwrite DefaultFuncMap.
 func LoadViews(dir string, funcMap template.FuncMap) error {
+	xmut.Lock()
+	defer xmut.Unlock()
+
 	if tmplInited {
 		return ErrTemplatesInited
+	}
+
+	// clean templates map.
+	for k := range templates {
+		delete(templates, k)
 	}
 
 	dir = filepath.Clean(dir)
 	templatesDir = dir
 
-	var files []string
-	var data []byte
-	err := filepath.Walk(dir, func(name string, info os.FileInfo, err error) error {
+	// buftmpl contains data from templates dir.
+	var buftmpl bytes.Buffer
+
+	// empty buffer
+	buftmpl.Reset()
+
+	if err := filepath.Walk(dir, func(name string, info os.FileInfo, err error) error {
 		// take template name from subdir+filename
 		tname := strings.Replace(name, dir+"/", "", -1)
 		ext := filepath.Ext(name)
@@ -294,28 +308,29 @@ func LoadViews(dir string, funcMap template.FuncMap) error {
 		if ext != ".html" {
 			return nil
 		}
-		b, err := ioutil.ReadFile(name)
+
+		if _, err := buftmpl.Write([]byte(`{{define "` + tname + `"}}`)); err != nil {
+			return err
+		}
+		f, err := os.Open(name)
 		if err != nil {
 			return err
 		}
-		// append to unique template data
-		data = append(data, []byte(fmt.Sprintf(`{{define "%s"}}`, tname))...)
-		data = append(data, b...)
-		data = append(data, []byte(`{{end}}`)...)
-		// wee need this after for template parsing
-		files = append(files, tname)
+		defer f.Close()
+		if _, err := buftmpl.ReadFrom(f); err != nil {
+			return err
+		}
+		if _, err := buftmpl.Write([]byte(`{{end}}`)); err != nil {
+			return err
+		}
+
+		// load template
+		templates[tname] = template.Must(template.New(tname).Funcs(funcMap).Parse(buftmpl.String()))
 		return nil
-	})
-	if err != nil {
+	}); err != nil {
 		return err
 	}
-
 	DefaultFuncMap = funcMap
-	for _, k := range files {
-		// template parsing
-		templates[k] = template.Must(template.New(k).Funcs(funcMap).Parse(string(data)))
-	}
-
 	tmplInited = true
 	return nil
 }
@@ -326,44 +341,46 @@ func LoadViews(dir string, funcMap template.FuncMap) error {
 // as name for template.
 func Render(w http.ResponseWriter, name string, v interface{}) error {
 	// for now use a mutex, later implementations can use sync.Pool of templates.
-	mut.RLock()
-	defer mut.RUnlock()
+	mut.Lock()
+	defer mut.Unlock()
 
-	if debug {
-		// clean templates
-		for k := range templates {
-			delete(templates, k)
-		}
+	if srestDebug {
 		tmplInited = false
 		// load templates again
 		// this generates a race condition. TODO; check later if a really trouble
 		// on debug mode, this is not expected to be turned on into production.
-		err := LoadViews(templatesDir, DefaultFuncMap)
-		if err != nil {
+		if err := LoadViews(templatesDir, DefaultFuncMap); err != nil {
 			return err
 		}
 	}
 	if !tmplInited {
 		return ErrTemplatesNil
 	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
 	// write template to buffer to make sure is working.
-	var buf bytes.Buffer
 	t, ok := templates[name]
 	if !ok {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("template not found"))
 		return ErrTemplateNotFound
 	}
-	err := t.ExecuteTemplate(&buf, name, v)
+
+	w.Header().Set("Content-Type", "text/html;charset=UTF-8")
+	err := t.ExecuteTemplate(w, name, v)
 	if err != nil {
 		return err
 	}
-	// buffer writing was done without errors. Write to http
-	// response.
-	_, err = buf.WriteTo(w)
-	return err
+	return nil
+
+	//	var buf bytes.Buffer
+	//	err := t.ExecuteTemplate(&buf, name, v)
+	//	if err != nil {
+	//		return err
+	//	}
+	//	// buffer writing was done without errors. Write to http
+	//	// response.
+	//	_, err = buf.WriteTo(w)
+	//	return err
 }
 
 // Modeler interface
