@@ -316,7 +316,11 @@ func LoadViews(dir string, funcMap template.FuncMap) error {
 		if err != nil {
 			return err
 		}
-		defer f.Close()
+		defer func() {
+			if err := f.Close(); err != nil {
+				log.Printf("error closing file : err [%s]", err)
+			}
+		}()
 		if _, err := buftmpl.ReadFrom(f); err != nil {
 			return err
 		}
@@ -361,7 +365,10 @@ func Render(w http.ResponseWriter, name string, v interface{}) error {
 	t, ok := templates[name]
 	if !ok {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("template not found"))
+		_, err := w.Write([]byte("template not found"))
+		if err != nil {
+			log.Printf("err [%s]", err)
+		}
 		return ErrTemplateNotFound
 	}
 

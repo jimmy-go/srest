@@ -205,7 +205,10 @@ func TestMiddlewareTable(t *testing.T) {
 					UseTLS: true,
 				},
 				Handler: func(w http.ResponseWriter, r *http.Request) {
-					JSON(w, "x")
+					err := JSON(w, "x")
+					if err != nil {
+						log.Printf("mw : err [%s]", err)
+					}
 				},
 				MW: []func(http.Handler) http.Handler{
 					func(h http.Handler) http.Handler {
@@ -222,12 +225,19 @@ func TestMiddlewareTable(t *testing.T) {
 			Input: Input{
 				Options: &Options{},
 				Handler: func(w http.ResponseWriter, r *http.Request) {
-					JSON(w, true)
+					err := JSON(w, true)
+					if err != nil {
+						log.Printf("mw : err [%s]", err)
+					}
+
 				},
 				MW: []func(http.Handler) http.Handler{
 					func(h http.Handler) http.Handler {
 						return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-							w.Write([]byte("one"))
+							_, err := w.Write([]byte("one"))
+							if err != nil {
+								log.Printf("mw : err [%s]", err)
+							}
 							h.ServeHTTP(w, r)
 						})
 					},
@@ -240,18 +250,27 @@ func TestMiddlewareTable(t *testing.T) {
 			Input: Input{
 				Options: nil,
 				Handler: func(w http.ResponseWriter, r *http.Request) {
-					JSON(w, true)
+					err := JSON(w, true)
+					if err != nil {
+						log.Printf("err [%s]", err)
+					}
 				},
 				MW: []func(http.Handler) http.Handler{
 					func(h http.Handler) http.Handler {
 						return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-							w.Write([]byte("one"))
+							_, err := w.Write([]byte("one"))
+							if err != nil {
+								log.Printf("mw : err [%s]", err)
+							}
 							h.ServeHTTP(w, r)
 						})
 					},
 					func(h http.Handler) http.Handler {
 						return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-							w.Write([]byte("two"))
+							_, err := w.Write([]byte("two"))
+							if err != nil {
+								log.Printf("mw : err [%s]", err)
+							}
 							h.ServeHTTP(w, r)
 						})
 					},
@@ -264,15 +283,24 @@ func TestMiddlewareTable(t *testing.T) {
 			Input: Input{
 				Options: &Options{},
 				Handler: func(w http.ResponseWriter, r *http.Request) {
-					JSON(w, 1)
+					err := JSON(w, 1)
+					if err != nil {
+						log.Printf("mw : err [%s]", err)
+					}
 				},
 				MW: []func(http.Handler) http.Handler{
 					func(h http.Handler) http.Handler {
 						return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+							if "" == " " {
+								h.ServeHTTP(w, r)
+								_, err := w.Write([]byte("one"))
+								if err != nil {
+									log.Printf("mw : err [%s]", err)
+								}
+							}
+
 							// skip
 							return
-							h.ServeHTTP(w, r)
-							w.Write([]byte("one"))
 						})
 					},
 				},
@@ -284,16 +312,25 @@ func TestMiddlewareTable(t *testing.T) {
 			Input: Input{
 				Options: &Options{},
 				Handler: func(w http.ResponseWriter, r *http.Request) {
-					JSON(w, 2)
+					err := JSON(w, 2)
+					if err != nil {
+						log.Printf("mw : err [%s]", err)
+					}
 				},
 				MW: []func(http.Handler) http.Handler{
 					func(h http.Handler) http.Handler {
 						return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+							if "" == " " {
+								h.ServeHTTP(w, r)
+								_, err := w.Write([]byte("one"))
+								if err != nil {
+									log.Printf("mw : err [%s]", err)
+								}
+							}
+
 							// skip
 							w.WriteHeader(http.StatusBadRequest)
 							return
-							h.ServeHTTP(w, r)
-							w.Write([]byte("one"))
 						})
 					},
 				},
@@ -315,7 +352,12 @@ func TestMiddlewareTable(t *testing.T) {
 			t.Errorf("get : err [%s]", err)
 			continue
 		}
-		defer res.Body.Close()
+		defer func() {
+			err := res.Body.Close()
+			if err != nil {
+				log.Printf("close file err [%s]", err)
+			}
+		}()
 
 		body, err := ioutil.ReadAll(res.Body)
 		if err != nil {
