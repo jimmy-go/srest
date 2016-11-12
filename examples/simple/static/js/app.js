@@ -1,3 +1,3 @@
 (function(){
-    console.log('app');
+    console.log('¡hello world! I'm app');
 }());
