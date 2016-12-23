@@ -26,6 +26,7 @@ package srest
 import (
 	"log"
 	"net/http/httptest"
+	"os"
 	"sync"
 	"testing"
 )
@@ -53,15 +54,66 @@ func racerender(t *testing.T, l int) {
 				t.Errorf("Render : err [%s]", err)
 				return
 			}
+
 			actual := w.Body.String()
-			expected := []byte("I am lowercase-eqs:true")
-			// remove additional \r
-			actual = actual[:len(actual)-1]
-			if string(actual) != string(expected) {
-				t.Errorf("expected [%s] actual [%s]", string(expected), string(actual))
+			expected := "I am lowercase-eqs:true"
+			if actual != expected {
+				t.Errorf("expected [%s] actual [%s]", expected, actual)
 				return
 			}
 		}()
 	}
 	wg.Wait()
+}
+
+// TestBugAllViewsLoaded demonstrates all views are loaded.
+func TestBugAllViewsLoaded(t *testing.T) {
+
+	dir, err := os.Getwd()
+	if err != nil {
+		log.Printf("get pwd : err [%s]", err)
+		return
+	}
+
+	tmplInited = false
+	funcm := deffuncmap()
+	err = LoadViews(dir+"/mock", funcm)
+	if err != nil {
+		log.Printf("LoadViews : err [%s]", err)
+		return
+	}
+
+	table := []TM{
+		TM{
+			Name:          "all/all.html",
+			ExpectedError: nil,
+			ExpectedBody:  `before_index::I am lowercase-eqs:true::after_index.before_menu::menu::after_menu`,
+		},
+		TM{
+			Name:          "index.html",
+			ExpectedError: nil,
+			ExpectedBody:  `I am lowercase-eqs:true`,
+		},
+		TM{
+			Name:          "menu.html",
+			ExpectedError: nil,
+			ExpectedBody:  `menu`,
+		},
+	}
+	for i := range table {
+		x := table[i]
+
+		w := httptest.NewRecorder()
+		err := Render(w, x.Name, map[string]interface{}{"x": 1})
+		if err != x.ExpectedError {
+			t.Errorf("expected [%s] actual [%s] view [%s]", x.ExpectedError, err, x.Name)
+			continue
+		}
+
+		actual := w.Body.String()
+		if actual != x.ExpectedBody {
+			t.Errorf("expected [%s] actual [%s] view [%s]", x.ExpectedBody, actual, x.Name)
+			continue
+		}
+	}
 }
