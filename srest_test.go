@@ -181,6 +181,8 @@ func TestServer(t *testing.T) {
 
 type TM struct {
 	Input              Input
+	Name               string
+	ExpectedError      error
 	ExpectedBody       string
 	ExpectedStatusCode int
 }
@@ -430,8 +432,6 @@ func TestRender(t *testing.T) {
 	}
 
 	expected := []byte("I am lowercase-eqs:true")
-	// remove additional \r
-	actual = actual[:len(actual)-1]
 	if string(actual) != string(expected) {
 		t.Errorf("expected [%s] actual [%s]", string(expected), string(actual))
 		return
@@ -505,8 +505,6 @@ func TestRenderDebug(t *testing.T) {
 	}
 
 	expected := []byte("I am lowercase-eqs:true")
-	// remove additional \r
-	actual = actual[:len(actual)-1]
 	if string(actual) != string(expected) {
 		t.Errorf("expected [%s] actual [%s]", string(expected), string(actual))
 		return

@@ -292,11 +292,11 @@ func LoadViews(dir string, funcMap template.FuncMap) error {
 	dir = filepath.Clean(dir)
 	templatesDir = dir
 
-	// buftmpl contains data from templates dir.
+	// buftmpl contains all the data from templates in dir and subdirectories.
 	var buftmpl bytes.Buffer
 
-	// empty buffer
-	buftmpl.Reset()
+	// we need to keep the names for later template parsing.
+	var names []string
 
 	if err := filepath.Walk(dir, func(name string, info os.FileInfo, err error) error {
 		// take template name from subdir+filename
@@ -322,15 +322,21 @@ func LoadViews(dir string, funcMap template.FuncMap) error {
 		if _, err := buftmpl.ReadFrom(f); err != nil {
 			return err
 		}
+		// clean \r
+		buftmpl.Truncate(buftmpl.Len() - 1)
 		if _, err := buftmpl.Write([]byte(`{{end}}`)); err != nil {
 			return err
 		}
 
-		// load template
-		templates[tname] = template.Must(template.New(tname).Funcs(funcMap).Parse(buftmpl.String()))
+		names = append(names, tname)
 		return nil
 	}); err != nil {
 		return err
+	}
+
+	for _, name := range names {
+		// load template
+		templates[name] = template.Must(template.New(name).Funcs(funcMap).Parse(buftmpl.String()))
 	}
 	DefaultFuncMap = funcMap
 	tmplInited = true
@@ -377,16 +383,6 @@ func Render(w http.ResponseWriter, name string, v interface{}) error {
 		return err
 	}
 	return nil
-
-	//	var buf bytes.Buffer
-	//	err := t.ExecuteTemplate(&buf, name, v)
-	//	if err != nil {
-	//		return err
-	//	}
-	//	// buffer writing was done without errors. Write to http
-	//	// response.
-	//	_, err = buf.WriteTo(w)
-	//	return err
 }
 
 // Modeler interface
