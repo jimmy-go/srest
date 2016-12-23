@@ -117,3 +117,21 @@ func TestBugAllViewsLoaded(t *testing.T) {
 		}
 	}
 }
+
+// TestBugEmpty demonstrate empty templates return error.
+func TestBugEmpty(t *testing.T) {
+
+	dir, err := os.Getwd()
+	if err != nil {
+		log.Printf("get pwd : err [%s]", err)
+		return
+	}
+
+	tmplInited = false
+	funcm := deffuncmap()
+	err = LoadViews(dir+"/mock_empty", funcm)
+	if err == nil {
+		t.Errorf("error MUST not be nil")
+		return
+	}
+}

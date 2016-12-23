@@ -299,12 +299,19 @@ func LoadViews(dir string, funcMap template.FuncMap) error {
 	var names []string
 
 	if err := filepath.Walk(dir, func(name string, info os.FileInfo, err error) error {
+
 		// take template name from subdir+filename
+
 		tname := strings.Replace(name, dir+"/", "", -1)
 		ext := filepath.Ext(name)
 		// ommit files not .html
 		if ext != ".html" {
 			return nil
+		}
+
+		// don't parse emtpy files
+		if info.Size() <= 1 {
+			return fmt.Errorf("empty file: %s", name)
 		}
 
 		if _, err := buftmpl.Write([]byte(`{{define "` + tname + `"}}`)); err != nil {
@@ -316,12 +323,14 @@ func LoadViews(dir string, funcMap template.FuncMap) error {
 		}
 		defer func() {
 			if err := f.Close(); err != nil {
-				log.Printf("error closing file : err [%s]", err)
+				log.Printf("error closing file : name [%s] err [%s]", tname, err)
 			}
 		}()
+
 		if _, err := buftmpl.ReadFrom(f); err != nil {
 			return err
 		}
+
 		// clean \r
 		buftmpl.Truncate(buftmpl.Len() - 1)
 		if _, err := buftmpl.Write([]byte(`{{end}}`)); err != nil {
