@@ -276,7 +276,7 @@ var (
 // <file.html> or <subdir>/<file.html> as name.
 //
 // funcMap will overwrite DefaultFuncMap.
-func LoadViews(dir string, funcMap template.FuncMap) error {
+func LoadViews(dirs string, funcMap template.FuncMap) error {
 	xmut.Lock()
 	defer xmut.Unlock()
 
@@ -288,9 +288,9 @@ func LoadViews(dir string, funcMap template.FuncMap) error {
 	for k := range templates {
 		delete(templates, k)
 	}
+	templatesDir = dirs
 
-	dir = filepath.Clean(dir)
-	templatesDir = dir
+	// dir = filepath.Clean(dir)
 
 	// buftmpl contains all the data from templates in dir and subdirectories.
 	var buftmpl bytes.Buffer
@@ -298,49 +298,67 @@ func LoadViews(dir string, funcMap template.FuncMap) error {
 	// we need to keep the names for later template parsing.
 	var names []string
 
-	if err := filepath.Walk(dir, func(name string, info os.FileInfo, err error) error {
+	// TODO; update doc
 
-		// take template name from subdir+filename
+	x := strings.Split(dirs, ",")
+	for i := range x {
+		dir := filepath.Clean(x[i])
 
-		tname := strings.Replace(name, dir+"/", "", -1)
-		ext := filepath.Ext(name)
-		// ommit files not .html
-		if ext != ".html" {
-			return nil
+		var dirPrefix string
+		if fs := strings.Split(dir, "/"); len(fs) > 0 {
+			dirPrefix = fs[len(fs)-1]
+		}
+		if i != 0 {
+			log.Printf("LoadViews: using secondary directory [%s] as [%s]", dir, dirPrefix)
 		}
 
-		// don't parse emtpy files
-		if info.Size() <= 1 {
-			return fmt.Errorf("empty file: %s", name)
-		}
+		if err := filepath.Walk(dir, func(name string, info os.FileInfo, err error) error {
 
-		if _, err := buftmpl.Write([]byte(`{{define "` + tname + `"}}`)); err != nil {
-			return err
-		}
-		f, err := os.Open(name)
-		if err != nil {
-			return err
-		}
-		defer func() {
-			if err := f.Close(); err != nil {
-				log.Printf("error closing file : name [%s] err [%s]", tname, err)
+			// take template name from subdir+filename
+
+			tname := strings.Replace(name, dir+"/", "", -1)
+			if i != 0 {
+				tname = dirPrefix + "/" + tname
 			}
-		}()
+			ext := filepath.Ext(name)
+			// ommit files not .html
+			if ext != ".html" {
+				return nil
+			}
 
-		if _, err := buftmpl.ReadFrom(f); err != nil {
+			// don't parse emtpy files
+			if info.Size() <= 1 {
+				return fmt.Errorf("empty file: %s", name)
+			}
+
+			if _, err := buftmpl.Write([]byte(`{{define "` + tname + `"}}`)); err != nil {
+				return err
+			}
+			f, err := os.Open(name)
+			if err != nil {
+				return err
+			}
+			defer func() {
+				if err := f.Close(); err != nil {
+					log.Printf("error closing file : name [%s] err [%s]", tname, err)
+				}
+			}()
+
+			if _, err := buftmpl.ReadFrom(f); err != nil {
+				return err
+			}
+
+			// clean \r
+			buftmpl.Truncate(buftmpl.Len() - 1)
+			if _, err := buftmpl.Write([]byte(`{{end}}`)); err != nil {
+				return err
+			}
+
+			names = append(names, tname)
+			return nil
+		}); err != nil {
 			return err
 		}
-
-		// clean \r
-		buftmpl.Truncate(buftmpl.Len() - 1)
-		if _, err := buftmpl.Write([]byte(`{{end}}`)); err != nil {
-			return err
-		}
-
-		names = append(names, tname)
-		return nil
-	}); err != nil {
-		return err
 	}
 
 	for _, name := range names {
@@ -397,4 +415,18 @@ func Render(w http.ResponseWriter, name string, v interface{}) error {
 // Modeler interface
 type Modeler interface {
 	IsValid() error
+}
+
+// Stresser interface
+type Stresser interface {
+	Modeler
+
+	Factory() error
+
+	Fuzz() error
+}
+
+// Stressor interface
+type Stressor interface {
+	Execute(Stresser, string)
 }
