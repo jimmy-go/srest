@@ -2,7 +2,7 @@
 cd $GOPATH/src/github.com/jimmy-go/srest
 
 if [ "$1" == "bench" ]; then
-    go test -race -bench=.
+    go test -race -bench=. -test.run=_NONE_
     exit;
 fi
 
