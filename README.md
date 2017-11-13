@@ -1,4 +1,4 @@
-####Simple RESTful and sites toolkit.
+#### Simple RESTful and sites toolkit.
 
 Srest goal it's help you build sites and clear RESTful webservices without enslave
 you to complicated frameworks rules.
@@ -8,7 +8,7 @@ It's a thin layer over other useful toolkits:
 
 [gorilla/schema](https://github.com/gorilla/schema)
 
-#####Features:
+##### Features:
 * Endpoint declaration with middleware support.
 * Input model validation.
 * Templates made easy (and faster).
@@ -22,12 +22,12 @@ _Current version is under 1.0 some breaking changes can happen._
 [![GoDoc](http://godoc.org/github.com/jimmy-go/srest?status.png)](http://godoc.org/github.com/jimmy-go/srest)
 [![Coverage Status](https://coveralls.io/repos/github/jimmy-go/srest/badge.svg?branch=master)](https://coveralls.io/github/jimmy-go/srest?branch=master)
 
-#####Install:
+##### Install:
 ```
 go get gopkg.in/jimmy-go/srest.v0
 ```
 
-#####Usage:
+##### Usage:
 ```
     // declare a new srest without TLS configuration.
     m := srest.New(nil)
@@ -135,12 +135,12 @@ func(w http.ResponseWriter, r *http.Request) {
 
 Take a look at the working example with all features on examples dir.
 
-#####ToDo:
+##### ToDo:
 
 * Add support for status 503.
 * Stress util.
 
-#####License:
+##### License:
 
 The MIT License (MIT)
 
