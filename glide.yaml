@@ -2,4 +2,4 @@ package: github.com/jimmy-go/srest
 import:
 - package: github.com/bmizerany/pat
 - package: github.com/gorilla/schema
-- package: github.com/satori/go.uuid
+- package: github.com/stretchr/testify

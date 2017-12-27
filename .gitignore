@@ -1,1 +1,6 @@
+# Test files
 coverage.out
+bin
+
+# Vendor files
+vendor

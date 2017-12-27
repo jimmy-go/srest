@@ -1,40 +1,23 @@
 // Package srest contains tools for sites and web services creation.
-/*
-	RESTfuler interface:
-		Create(w http.ResponseWriter, r *http.Request)
-		One(w http.ResponseWriter, r *http.Request)
-		List(w http.ResponseWriter, r *http.Request)
-		Update(w http.ResponseWriter, r *http.Request)
-		Delete(w http.ResponseWriter, r *http.Request)
-
-	Modeler interface:
-		IsValid() error
+/*	Copyright 2016 The SREST Authors. All rights reserved.
+	Use of this source code is governed by a BSD-style
+	license that can be found in the LICENSE file.
 */
-// The MIT License (MIT)
-//
-// Copyright (c) 2016 Angel Del Castillo
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
 package srest
+
+//	RESTfuler interface:
+//		List(w http.ResponseWriter, r *http.Request)
+//		One(w http.ResponseWriter, r *http.Request)
+//		Create(w http.ResponseWriter, r *http.Request)
+//		Update(w http.ResponseWriter, r *http.Request)
+//		Delete(w http.ResponseWriter, r *http.Request)
+//
+//	Modeler interface:
+//		IsValid() error
 
 import (
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -45,6 +28,8 @@ import (
 	"runtime/debug"
 	"syscall"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestMain(m *testing.M) {
@@ -54,7 +39,6 @@ func TestMain(m *testing.M) {
 		return
 	}
 
-	tmplInited = false
 	funcm := deffuncmap()
 	err = LoadViews(dir+"/mock", funcm)
 	if err != nil {
@@ -386,19 +370,17 @@ func TestMiddlewareTable(t *testing.T) {
 }
 
 func TestLoadViews(t *testing.T) {
-	tmplInited = false
-	err := LoadViews("mock2fail", map[string]interface{}{})
-	if err != nil {
-		t.Errorf("LoadViews : err [%s]", err)
-	}
+	dir, err := os.Getwd()
+	assert.Nil(t, err)
+
+	err = LoadViews(dir+"/mock", DefaultFuncMap)
+	assert.Nil(t, err)
 }
 
 func TestLoadViewsFail(t *testing.T) {
-	tmplInited = false
 	err := LoadViews("mock2fail", map[string]interface{}{})
-	if err != nil {
-		t.Errorf("LoadViews : err [%s]", err)
-	}
+	assert.NotNil(t, err)
+	assert.EqualValues(t, "lstat mock2fail: no such file or directory", fmt.Sprintf("%s", err))
 }
 
 func TestRender(t *testing.T) {
@@ -407,7 +389,6 @@ func TestRender(t *testing.T) {
 		t.Errorf("get pwd : err [%s]", err)
 	}
 
-	tmplInited = false
 	funcm := deffuncmap()
 	err = LoadViews(dir+"/mock", funcm)
 	if err != nil {
@@ -444,7 +425,6 @@ func TestRenderFail(t *testing.T) {
 		t.Errorf("get pwd : err [%s]", err)
 	}
 
-	tmplInited = false
 	funcm := deffuncmap()
 	err = LoadViews(dir+"/mock", funcm)
 	if err != nil {
@@ -461,12 +441,13 @@ func TestRenderFail(t *testing.T) {
 		return
 	}
 
-	actual, err := ioutil.ReadAll(w.Body)
+	b, err := ioutil.ReadAll(w.Body)
 	if err != nil {
 		t.Errorf("read body : err [%s]", err)
 		return
 	}
-	expected := []byte("template not found")
+	actual := b[:len(b)-1]
+	expected := []byte("template view not found")
 	if string(actual) != string(expected) {
 		t.Errorf("expected [%s] actual [%s]", string(expected), string(actual))
 		return
@@ -479,7 +460,6 @@ func TestRenderDebug(t *testing.T) {
 		t.Errorf("get pwd : err [%s]", err)
 	}
 
-	tmplInited = false
 	funcm := deffuncmap()
 	err = LoadViews(dir+"/mock", funcm)
 	if err != nil {
