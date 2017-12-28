@@ -122,6 +122,7 @@ func Debug(ok bool) {
 }
 
 func parseFile(dir, name, prefix string, buf *bytes.Buffer) (string, error) {
+	// log.Printf("parseFile : dir [%s] name [%s] prefix [%s]", dir, name, prefix)
 	// Take template name from subdir+filename
 	tname := strings.Replace(name, dir+"/", "", -1)
 	if prefix != "" {
@@ -144,7 +145,7 @@ func parseFile(dir, name, prefix string, buf *bytes.Buffer) (string, error) {
 	if err := f.Close(); err != nil {
 		return "", err
 	}
-	body := string(b[:len(b)-1])
+	body := string(b)
 	if _, err := fmt.Fprintf(buf, `{{define "%s"}}%s{{end}}`, tname, body); err != nil {
 		return "", err
 	}

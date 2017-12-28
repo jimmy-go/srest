@@ -22,15 +22,16 @@ bench:
 	./zscripts/test.sh bench
 
 coverage:
-	@echo "Make: Benchmarking"
+	@echo "Make: Coverage"
 	./zscripts/test.sh html
 
 stress:
-	@echo "Make: Benchmarking"
+	@echo "Make: Stress"
 	./zscripts/test.sh allocs
 
 clean:
 	@echo "Make: Clean"
 	rm -rf vendor
 	rm -rf temp
+	rm -rf _tmp_views
 	rm coverage.out

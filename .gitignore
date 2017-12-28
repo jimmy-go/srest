@@ -2,6 +2,7 @@
 coverage.out
 bin
 _views
+_tmp_views
 
 # Vendor files
 vendor

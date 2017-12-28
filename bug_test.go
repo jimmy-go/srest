@@ -7,7 +7,6 @@ package srest
 
 import (
 	"net/http/httptest"
-	"os"
 	"sync"
 	"testing"
 
@@ -15,20 +14,20 @@ import (
 )
 
 func TestBugRaceRender(t *testing.T) {
-	dir, err := os.Getwd()
+	dir, err := getTempDir()
 	assert.Nil(t, err)
 
-	err = LoadViews(dir+"/mock", DefaultFuncMap)
+	err = LoadViews(dir+"/a", DefaultFuncMap)
 	assert.Nil(t, err)
 
 	racerender(t, 1000)
 }
 
 func TestBugRaceRenderDebug(t *testing.T) {
-	dir, err := os.Getwd()
+	dir, err := getTempDir()
 	assert.Nil(t, err)
 
-	err = LoadViews(dir+"/mock", DefaultFuncMap)
+	err = LoadViews(dir+"/a", DefaultFuncMap)
 	assert.Nil(t, err)
 
 	Debug(true)
@@ -55,10 +54,10 @@ func racerender(t *testing.T, l int) {
 
 // TestBugAllViewsLoaded demonstrates all views are loaded.
 func TestBugAllViewsLoaded(t *testing.T) {
-	dir, err := os.Getwd()
+	dir, err := getTempDir()
 	assert.Nil(t, err)
 
-	err = LoadViews(dir+"/mock", DefaultFuncMap)
+	err = LoadViews(dir+"/a", DefaultFuncMap)
 	assert.Nil(t, err)
 
 	table := []struct {

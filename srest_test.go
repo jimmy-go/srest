@@ -6,6 +6,7 @@
 package srest
 
 import (
+	"errors"
 	"io"
 	"log"
 	"os"
@@ -35,28 +36,75 @@ func TestMain(m *testing.M) {
 	os.Exit(v)
 }
 
+const (
+	tmpDirName = "_tmp_views"
+)
+
+// getTempDir returns the temporal dir for templates tests.
+func getTempDir() (string, error) {
+	dir, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	s := dir + "/" + tmpDirName
+	return s, nil
+}
+
 // doTempViews creates the html templates required for all tests.
 func doTempViews() error {
-	dir, err := os.Getwd()
+	tmpDir, err := getTempDir()
 	if err != nil {
 		return err
 	}
-
-	tmpDir := dir + "/_views"
 	log.Printf("TmpViews : tmp dir [%s]", tmpDir)
 
-	if err := os.Remove(tmpDir); err != nil {
-		return err
+	dirs := []struct {
+		Dir string
+	}{
+		{tmpDir},
+		{tmpDir + "/a/all"},
+	}
+	for _, x := range dirs {
+		if err := mkDir(x.Dir); err != nil {
+			return err
+		}
 	}
 
-	if err := os.MkdirAll(tmpDir, 0777); err != nil {
-		return err
+	files := []struct {
+		File, Content string
+	}{
+		{
+			"a/all/all.html",
+			`before_index::{{template "index.html" .}}::after_index.before_menu::{{template "menu.html" .}}::after_menu`,
+		},
+		{
+			"a/index.html",
+			`{{cap "i am lowercase"}}-eqs:{{eqs 1 "1"}}{{cap ""}}`,
+		},
+		{
+			"a/menu.html",
+			`menu`,
+		},
+	}
+	for _, x := range files {
+		if err := mkFile(tmpDir+"/"+x.File, x.Content); err != nil {
+			return err
+		}
 	}
 
-	if err := mkFile(tmpDir+"/index.html", `{{hello world}}`); err != nil {
+	return nil
+}
+
+func mkDir(path string) error {
+	if path == "" {
+		return errors.New("empty path")
+	}
+	if err := os.RemoveAll(path); err != nil {
 		return err
 	}
-
+	if err := os.MkdirAll(path, 0777); err != nil {
+		return err
+	}
 	return nil
 }
 
