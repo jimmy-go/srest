@@ -6,79 +6,70 @@
 package srest
 
 import (
+	"io"
 	"log"
-	"net/http"
 	"os"
 	"runtime"
-	"runtime/debug"
-	"syscall"
+	"runtime/pprof"
 	"testing"
 )
 
 func TestMain(m *testing.M) {
-	dir, err := os.Getwd()
-	if err != nil {
-		log.Printf("get pwd : err [%s]", err)
-		return
-	}
-
-	err = LoadViews(dir+"/mock", DefaultFuncMap)
-	if err != nil {
-		log.Printf("LoadViews : err [%s]", err)
-		return
+	// Create temporal dir and templates.
+	if err := doTempViews(); err != nil {
+		panic(err)
 	}
 
 	v := m.Run()
-	gos := runtime.NumGoroutine()
-	if gos > 50 {
-		log.Printf("goroutines [%v]", gos)
-		debug.PrintStack()
-		panic("blocked goroutines")
+
+	grs := runtime.NumGoroutine()
+	//	log.Printf("goroutines [%v]", grs)
+
+	if grs > 20 {
+		if err := pprof.Lookup("goroutine").WriteTo(os.Stdout, 2); err != nil {
+			panic(err)
+		}
+		panic("exceeded goroutines limit")
 	}
 
 	os.Exit(v)
 }
 
-// API satisfies RESTfuler interface
-type API struct {
-	T *testing.T
+// doTempViews creates the html templates required for all tests.
+func doTempViews() error {
+	dir, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+
+	tmpDir := dir + "/_views"
+	log.Printf("TmpViews : tmp dir [%s]", tmpDir)
+
+	if err := os.Remove(tmpDir); err != nil {
+		return err
+	}
+
+	if err := os.MkdirAll(tmpDir, 0777); err != nil {
+		return err
+	}
+
+	if err := mkFile(tmpDir+"/index.html", `{{hello world}}`); err != nil {
+		return err
+	}
+
+	return nil
 }
 
-// Create test
-func (a *API) Create(w http.ResponseWriter, r *http.Request) {}
-
-// One test
-func (a *API) One(w http.ResponseWriter, r *http.Request) {}
-
-// List test
-func (a *API) List(w http.ResponseWriter, r *http.Request) {}
-
-// Update test
-func (a *API) Update(w http.ResponseWriter, r *http.Request) {}
-
-// Delete test
-func (a *API) Delete(w http.ResponseWriter, r *http.Request) {}
-
-func sampleMW(h http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// DO NOTHING
-		h.ServeHTTP(w, r)
-	})
-}
-
-func TestServer(t *testing.T) {
-	defer func() {
-		if err := recover(); err != nil {
-			t.Logf("panics : err [%s]", err)
-		}
-	}()
-
-	m := New(nil)
-	m.Get("/static", Static("/static", "mydir"))
-	m.Use("/v1/api/friends", &API{t})
-	m.Use("/v1/api/others", &API{t}, sampleMW)
-	c := m.Run(9999)
-	go func() {
-		c <- syscall.SIGTERM
-	}()
+func mkFile(path, body string) error {
+	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0755)
+	if err != nil {
+		return err
+	}
+	if _, err := io.WriteString(f, body); err != nil {
+		return err
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
+	return nil
 }

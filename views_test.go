@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http/httptest"
 	"os"
 	"testing"
@@ -110,13 +111,26 @@ func TestParseFile(t *testing.T) {
 	assert.Nil(t, err)
 
 	var buf bytes.Buffer
-	s, err := parseFile(dir, "all.html", "all", &buf)
+	s, err := parseFile(dir+"/mock/all", "mock/all/all.html", "", &buf)
+	oerr, ok := err.(*os.PathError)
+	if ok {
+		log.Printf("path error [%s]", oerr)
+	}
 	assert.Nil(t, err)
-	assert.EqualValues(t, "", s)
+	assert.EqualValues(t, "mock/all/all.html", s)
 
 	b, err := ioutil.ReadAll(&buf)
 	assert.Nil(t, err)
 
 	actual := string(b)
-	assert.EqualValues(t, `{{define "all/all.html"}}`, actual)
+	expected := `{{define "mock/all/all.html"}}before_index::{{template "index.html" .}}::after_index.before_menu::{{template "menu.html" .}}::after_menu{{end}}`
+	assert.EqualValues(t, expected, actual)
+}
+
+func TestLoadEmptyFile(t *testing.T) {
+	dir, err := os.Getwd()
+	assert.Nil(t, err)
+
+	err = LoadViews(dir+"/mock_empty", DefaultFuncMap)
+	assert.NotNil(t, err)
 }

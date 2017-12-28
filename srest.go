@@ -95,7 +95,6 @@ func (m *SREST) Run(port int) chan os.Signal {
 	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		addrs := fmt.Sprintf(":%v", port)
-		log.Printf("srest : listen on : %v", addrs)
 		var err error
 		if m.Options.UseTLS {
 			err = http.ListenAndServeTLS(addrs, m.Options.TLSCert, m.Options.TLSKey, m.Mux)

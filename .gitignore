@@ -1,6 +1,7 @@
 # Test files
 coverage.out
 bin
+_views
 
 # Vendor files
 vendor

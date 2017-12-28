@@ -7,6 +7,8 @@ import (
 	"net/http/httptest"
 	"syscall"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 type Input struct {
@@ -23,10 +25,10 @@ func TestMiddleware(t *testing.T) {
 		}
 	}()
 	table := []struct {
-		Purpose            string
-		Input              Input
-		ExpectedBody       string
-		ExpectedStatusCode int
+		Purpose string
+		Input   Input
+		ExpBody string
+		Code    int
 	}{
 		{
 			"1. OK",
@@ -193,22 +195,18 @@ func TestMiddleware(t *testing.T) {
 			}
 		}()
 
-		body, err := ioutil.ReadAll(res.Body)
+		assert.EqualValues(t, x.Code, res.StatusCode, x.Purpose)
+
+		b, err := ioutil.ReadAll(res.Body)
 		if err != nil {
 			t.Errorf("get : err [%s]", err)
 		}
 
-		if res.StatusCode != x.ExpectedStatusCode {
-			t.Errorf("expected [%v] actual [%v]", x.ExpectedStatusCode, res.StatusCode)
+		var actual string
+		if len(b) > 0 {
+			actual = string(b[:len(b)-1])
 		}
-
-		actual := string(body)
-		if len(body) > 0 {
-			actual = actual[:len(actual)-1]
-		}
-		if actual != x.ExpectedBody {
-			t.Errorf("expected [%s] actual [%s]", x.ExpectedBody, actual)
-		}
+		assert.EqualValues(t, x.ExpBody, actual, x.Purpose)
 
 		c := n.Run(x.Input.Port)
 		go func() {

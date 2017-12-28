@@ -6,7 +6,6 @@
 package srest
 
 import (
-	"log"
 	"net/http/httptest"
 	"os"
 	"sync"
@@ -16,14 +15,24 @@ import (
 )
 
 func TestBugRaceRender(t *testing.T) {
+	dir, err := os.Getwd()
+	assert.Nil(t, err)
+
+	err = LoadViews(dir+"/mock", DefaultFuncMap)
+	assert.Nil(t, err)
+
 	racerender(t, 1000)
-	log.Printf("render done")
 }
 
 func TestBugRaceRenderDebug(t *testing.T) {
+	dir, err := os.Getwd()
+	assert.Nil(t, err)
+
+	err = LoadViews(dir+"/mock", DefaultFuncMap)
+	assert.Nil(t, err)
+
 	Debug(true)
 	racerender(t, 1000)
-	log.Printf("render debug done")
 }
 
 func racerender(t *testing.T, l int) {
@@ -35,9 +44,6 @@ func racerender(t *testing.T, l int) {
 			w := httptest.NewRecorder()
 			err := Render(w, "index.html", map[string]interface{}{"x": 1})
 			assert.Nil(t, err)
-			if err != nil {
-				t.FailNow()
-			}
 
 			actual := w.Body.String()
 			expected := "I am lowercase-eqs:true"
@@ -49,43 +55,35 @@ func racerender(t *testing.T, l int) {
 
 // TestBugAllViewsLoaded demonstrates all views are loaded.
 func TestBugAllViewsLoaded(t *testing.T) {
-
 	dir, err := os.Getwd()
-	if err != nil {
-		log.Printf("get pwd : err [%s]", err)
-		return
-	}
+	assert.Nil(t, err)
 
-	funcm := deffuncmap()
-	err = LoadViews(dir+"/mock", funcm)
-	if err != nil {
-		log.Printf("LoadViews : err [%s]", err)
-		return
-	}
+	err = LoadViews(dir+"/mock", DefaultFuncMap)
+	assert.Nil(t, err)
 
 	table := []struct {
 		Purpose  string
 		Name     string
-		ExpError error
 		ExpBody  string
+		ExpError error
 	}{
 		{
 			"1. OK",
 			"all/all.html",
-			nil,
 			`before_index::I am lowercase-eqs:true::after_index.before_menu::menu::after_menu`,
+			nil,
 		},
 		{
 			"2. OK",
 			"index.html",
-			nil,
 			`I am lowercase-eqs:true`,
+			nil,
 		},
 		{
 			"3. OK",
 			"menu.html",
-			nil,
 			`menu`,
+			nil,
 		},
 	}
 	for i := range table {
@@ -93,28 +91,9 @@ func TestBugAllViewsLoaded(t *testing.T) {
 
 		w := httptest.NewRecorder()
 		err := Render(w, x.Name, map[string]interface{}{"x": 1})
-		if err != x.ExpError {
-			t.Errorf("expected [%s] actual [%s] view [%s]", x.ExpError, err, x.Name)
-			continue
-		}
+		assert.EqualValues(t, x.ExpError, err, x.Purpose)
 
 		actual := w.Body.String()
-		if actual != x.ExpBody {
-			t.Errorf("expected [%s] actual [%s] view [%s]", x.ExpBody, actual, x.Name)
-			continue
-		}
+		assert.EqualValues(t, x.ExpBody, actual, x.Purpose)
 	}
-}
-
-// TestBugEmpty demonstrate empty templates return error.
-func TestBugEmpty(t *testing.T) {
-
-	dir, err := os.Getwd()
-	if err != nil {
-		log.Printf("get pwd : err [%s]", err)
-		return
-	}
-
-	err = LoadViews(dir+"/mock_empty", DefaultFuncMap)
-	assert.NotNil(t, err)
 }
