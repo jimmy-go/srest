@@ -106,14 +106,13 @@ func TestRenderDebugFail(t *testing.T) {
 }
 
 func TestParseFile(t *testing.T) {
-	return
 	dir, err := os.Getwd()
 	assert.Nil(t, err)
 
 	var buf bytes.Buffer
 	s, err := parseFile(dir, "all.html", "all", &buf)
 	assert.Nil(t, err)
-	assert.EqualValues(t, "ss", s)
+	assert.EqualValues(t, "", s)
 
 	b, err := ioutil.ReadAll(&buf)
 	assert.Nil(t, err)
