@@ -17,6 +17,15 @@ import (
 	"github.com/bmizerany/pat"
 )
 
+// RESTfuler interface.
+type RESTfuler interface {
+	Create(w http.ResponseWriter, r *http.Request)
+	One(w http.ResponseWriter, r *http.Request)
+	List(w http.ResponseWriter, r *http.Request)
+	Update(w http.ResponseWriter, r *http.Request)
+	Delete(w http.ResponseWriter, r *http.Request)
+}
+
 // Options type.
 type Options struct {
 	UseTLS  bool
@@ -98,13 +107,4 @@ func (m *SREST) Run(port int) chan os.Signal {
 		}
 	}()
 	return c
-}
-
-// RESTfuler interface.
-type RESTfuler interface {
-	Create(w http.ResponseWriter, r *http.Request)
-	One(w http.ResponseWriter, r *http.Request)
-	List(w http.ResponseWriter, r *http.Request)
-	Update(w http.ResponseWriter, r *http.Request)
-	Delete(w http.ResponseWriter, r *http.Request)
 }

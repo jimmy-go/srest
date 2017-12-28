@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -44,7 +45,6 @@ func LoadViews(dirs string, funcMap template.FuncMap) error {
 	templatesDir = dirs
 
 	var buf bytes.Buffer
-	// 	buf := new(bytes.Buffer)
 
 	// We need to keep the names for later template parsing.
 	var names []string
@@ -55,7 +55,7 @@ func LoadViews(dirs string, funcMap template.FuncMap) error {
 
 		var prefix string
 		folders := strings.Split(cpath, "/")
-		if len(folders) > 1 && i > 0 {
+		if len(folders) > 0 && i > 0 {
 			prefix = folders[len(folders)-1]
 		}
 		if err := filepath.Walk(cpath, func(name string, info os.FileInfo, ferr error) error {
@@ -132,23 +132,20 @@ func parseFile(dir, name, prefix string, buf *bytes.Buffer) (string, error) {
 	if ext := filepath.Ext(name); ext != ".html" {
 		return "", nil
 	}
-	if _, err := buf.Write([]byte(`{{define "` + tname + `"}}`)); err != nil {
-		return "", err
-	}
 	f, err := os.Open(name)
 	if err != nil {
 		return "", err
 	}
-	if _, err := buf.ReadFrom(f); err != nil {
+	// Benchmark this cost.
+	b, err := ioutil.ReadAll(f)
+	if err != nil {
 		return "", err
 	}
 	if err := f.Close(); err != nil {
 		return "", err
 	}
-
-	// Remove \r
-	buf.Truncate(buf.Len() - 1)
-	if _, err := buf.Write([]byte(`{{end}}`)); err != nil {
+	body := string(b[:len(b)-1])
+	if _, err := fmt.Fprintf(buf, `{{define "%s"}}%s{{end}}`, tname, body); err != nil {
 		return "", err
 	}
 	return tname, nil

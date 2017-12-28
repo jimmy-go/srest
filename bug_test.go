@@ -63,21 +63,29 @@ func TestBugAllViewsLoaded(t *testing.T) {
 		return
 	}
 
-	table := []TM{
-		TM{
-			Name:          "all/all.html",
-			ExpectedError: nil,
-			ExpectedBody:  `before_index::I am lowercase-eqs:true::after_index.before_menu::menu::after_menu`,
+	table := []struct {
+		Purpose  string
+		Name     string
+		ExpError error
+		ExpBody  string
+	}{
+		{
+			"1. OK",
+			"all/all.html",
+			nil,
+			`before_index::I am lowercase-eqs:true::after_index.before_menu::menu::after_menu`,
 		},
-		TM{
-			Name:          "index.html",
-			ExpectedError: nil,
-			ExpectedBody:  `I am lowercase-eqs:true`,
+		{
+			"2. OK",
+			"index.html",
+			nil,
+			`I am lowercase-eqs:true`,
 		},
-		TM{
-			Name:          "menu.html",
-			ExpectedError: nil,
-			ExpectedBody:  `menu`,
+		{
+			"3. OK",
+			"menu.html",
+			nil,
+			`menu`,
 		},
 	}
 	for i := range table {
@@ -85,14 +93,14 @@ func TestBugAllViewsLoaded(t *testing.T) {
 
 		w := httptest.NewRecorder()
 		err := Render(w, x.Name, map[string]interface{}{"x": 1})
-		if err != x.ExpectedError {
-			t.Errorf("expected [%s] actual [%s] view [%s]", x.ExpectedError, err, x.Name)
+		if err != x.ExpError {
+			t.Errorf("expected [%s] actual [%s] view [%s]", x.ExpError, err, x.Name)
 			continue
 		}
 
 		actual := w.Body.String()
-		if actual != x.ExpectedBody {
-			t.Errorf("expected [%s] actual [%s] view [%s]", x.ExpectedBody, actual, x.Name)
+		if actual != x.ExpBody {
+			t.Errorf("expected [%s] actual [%s] view [%s]", x.ExpBody, actual, x.Name)
 			continue
 		}
 	}
