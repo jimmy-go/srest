@@ -2,9 +2,11 @@ package srest
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net/http"
 	"net/http/httptest"
 	"os"
 	"testing"
@@ -106,6 +108,30 @@ func TestRenderDebugFail(t *testing.T) {
 	templatesDir = "2fail"
 	err = Render(w, "index.html", map[string]interface{}{"x": 1})
 	assert.EqualValues(t, "lstat 2fail: no such file or directory", fmt.Sprintf("%s", err))
+
+	// Validate error when writer is nil.
+	wr := &WR{}
+	Debug(false)
+	err = LoadViews(dir+"/a", DefaultFuncMap)
+	err = Render(wr, "index.html", nil)
+	assert.EqualValues(t, "expected fail", fmt.Sprintf("%s", err))
+}
+
+// WR used for failed write validations.
+type WR struct{}
+
+// Header implements http.ResponseWriter.
+func (wr *WR) Header() http.Header {
+	h := http.Header{}
+	return h
+}
+
+// WriteHeader implements http.ResponseWriter.
+func (wr *WR) WriteHeader(code int) {}
+
+// Write implements io.Writer.
+func (wr *WR) Write(b []byte) (int, error) {
+	return 0, errors.New("expected fail")
 }
 
 func TestParseFile(t *testing.T) {
@@ -129,10 +155,28 @@ func TestParseFile(t *testing.T) {
 	assert.EqualValues(t, expected, actual)
 }
 
-func TestLoadEmptyFile(t *testing.T) {
+func TestParseFileFail(t *testing.T) {
 	dir, err := getTempDir()
 	assert.Nil(t, err)
 
-	err = LoadViews(dir+"/mock_empty", DefaultFuncMap)
+	var buf bytes.Buffer
+	_, err = parseFile(dir+"/c", dir+"/c/not_exists.html", "", &buf)
+	assert.NotNil(t, err)
+	oerr, ok := err.(*os.PathError)
+	assert.EqualValues(t, true, ok)
+	assert.EqualValues(t, "no such file or directory", fmt.Sprintf("%s", oerr.Err))
+}
+
+func TestLoadViewsMultipleDirs(t *testing.T) {
+	dir, err := getTempDir()
+	assert.Nil(t, err)
+	err = LoadViews(dir+"/a,"+dir+"/b", DefaultFuncMap)
+	assert.Nil(t, err)
+}
+
+func TestLoadViewsEmptyFile(t *testing.T) {
+	dir, err := getTempDir()
+	assert.Nil(t, err)
+	err = LoadViews(dir+"/c", DefaultFuncMap)
 	assert.NotNil(t, err)
 }

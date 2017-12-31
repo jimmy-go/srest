@@ -1,5 +1,5 @@
 # Test files
-coverage.out
+coverage.*
 bin
 _views
 _tmp_views

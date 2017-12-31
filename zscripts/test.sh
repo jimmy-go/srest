@@ -11,7 +11,7 @@ fi
 
 if [ "$1" == "html" ]; then
     go test -v -cover -coverprofile=coverage.out
-    go tool cover -html=coverage.out
+    go tool cover -html=coverage.out -o coverage.html
     exit;
 fi
 

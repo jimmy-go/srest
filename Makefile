@@ -34,4 +34,5 @@ clean:
 	rm -rf vendor
 	rm -rf temp
 	rm -rf _tmp_views
+	touch coverage.out
 	rm coverage.out

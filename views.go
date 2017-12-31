@@ -122,7 +122,6 @@ func Debug(ok bool) {
 }
 
 func parseFile(dir, name, prefix string, buf *bytes.Buffer) (string, error) {
-	// log.Printf("parseFile : dir [%s] name [%s] prefix [%s]", dir, name, prefix)
 	// Take template name from subdir+filename
 	tname := strings.Replace(name, dir+"/", "", -1)
 	if prefix != "" {

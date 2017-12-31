@@ -1,12 +1,12 @@
 hash: 94fbe58edf929797189e974a6dc49d1e7264e80a726d8345cdbcfc60cfd37d3a
-updated: 2017-12-27T15:46:13.998732-06:00
+updated: 2017-12-30T18:18:55.862358-06:00
 imports:
 - name: github.com/bmizerany/pat
   version: 6226ea591a40176dd3ff9cd8eff81ed6ca721a00
 - name: github.com/gorilla/schema
-  version: 4663607285146df46a987f5e930bdfbd2d7cbe96
+  version: afe77393c53b66afe9212810d9b2013859d04ae6
 - name: github.com/stretchr/testify
-  version: 2aa2c176b9dab406a6970f6a55f513e8a8c8b18f
+  version: 05aa1d4af4523cd559eb902635444b0a09a3799f
   subpackages:
   - assert
 testImports:
