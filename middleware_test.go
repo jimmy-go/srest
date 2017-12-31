@@ -5,7 +5,7 @@ import (
 	"log"
 	"net/http"
 	"net/http/httptest"
-	"syscall"
+	"net/url"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -16,6 +16,60 @@ type Input struct {
 	Port    int
 	Handler func(http.ResponseWriter, *http.Request)
 	MW      []func(http.Handler) http.Handler
+}
+
+func TestMiddlewareHandler(t *testing.T) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = JSON(w, true)
+	})
+	mid1 := func(h http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("mid1", "middleware one")
+			h.ServeHTTP(w, r)
+		})
+	}
+
+	m := New(nil)
+	m.Get("/", handler, mid1)
+	err := m.registerHandlers()
+	assert.Nil(t, err)
+	ts := httptest.NewServer(m.Mux)
+
+	res, err := http.Get(ts.URL)
+	uerr, ok := err.(*url.Error)
+	if ok {
+		log.Printf("err [%s]", uerr)
+	}
+	assert.Nil(t, err)
+	assert.EqualValues(t, 200, res.StatusCode)
+	hmsg := res.Header.Get("mid1")
+	assert.EqualValues(t, `middleware one`, hmsg)
+
+	b, err := ioutil.ReadAll(res.Body)
+	assert.Nil(t, err)
+	err = res.Body.Close()
+	assert.Nil(t, err)
+
+	var actual string
+	if len(b) > 0 {
+		actual = string(b[:len(b)-1])
+	}
+	assert.EqualValues(t, `true`, actual)
+	ts.Close()
+}
+
+func TestMiddlewareHandlerFail(t *testing.T) {
+	defer func() {
+		err := recover()
+		assert.EqualValues(t, "Run : register handlers : err [method not found: ]", err)
+	}()
+	m := New(nil)
+	m.Get("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	m.Get("", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	m.handlers = append(m.handlers, tmpHandler{})
+	err := m.registerHandlers()
+	assert.NotNil(t, err)
+	m.Run(9000)
 }
 
 func TestMiddleware(t *testing.T) {
@@ -178,29 +232,25 @@ func TestMiddleware(t *testing.T) {
 	for i := range table {
 		x := table[i]
 
-		n := New(x.Input.Options)
-		n.Get("/", http.HandlerFunc(x.Input.Handler), x.Input.MW...)
-		ts := httptest.NewServer(n.Mux)
+		m := New(x.Input.Options)
+		m.Get("/", http.HandlerFunc(x.Input.Handler), x.Input.MW...)
+		err := m.registerHandlers()
+		assert.Nil(t, err, x.Purpose)
+		ts := httptest.NewServer(m.Mux)
 		defer ts.Close()
 
 		res, err := http.Get(ts.URL)
-		if err != nil {
-			t.Errorf("get : err [%s]", err)
-			continue
+		uerr, ok := err.(*url.Error)
+		if ok {
+			log.Printf("[%s] err [%s]", x.Purpose, uerr)
 		}
-		defer func() {
-			err := res.Body.Close()
-			if err != nil {
-				log.Printf("close file err [%s]", err)
-			}
-		}()
-
+		assert.Nil(t, err, x.Purpose)
 		assert.EqualValues(t, x.Code, res.StatusCode, x.Purpose)
 
 		b, err := ioutil.ReadAll(res.Body)
-		if err != nil {
-			t.Errorf("get : err [%s]", err)
-		}
+		assert.Nil(t, err, x.Purpose)
+		err = res.Body.Close()
+		assert.Nil(t, err, x.Purpose)
 
 		var actual string
 		if len(b) > 0 {
@@ -208,9 +258,6 @@ func TestMiddleware(t *testing.T) {
 		}
 		assert.EqualValues(t, x.ExpBody, actual, x.Purpose)
 
-		c := n.Run(x.Input.Port)
-		go func() {
-			c <- syscall.SIGTERM
-		}()
+		m.Run(x.Input.Port)
 	}
 }

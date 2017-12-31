@@ -146,7 +146,7 @@ Take a look at the working example with all features on examples dir.
 
 ### NOTES:
 
-* Prevent errors with endpoint declaration order.
+* Prevents errors with endpoint declaration order.
 
 ```
 m := srest.New(nil)
@@ -160,8 +160,10 @@ m.Get("/hello/:id", helloHandler)
 ```
 m := srest.New(nil)
 m.Get("/hello", helloHandler)
-m.Get("/hello", helloHandler)
-<-m.Run(9000) // Would panic
+m.Get("/hello", helloHandler) // Would panic.
+m.Get("/hello/:a/name", helloHandler)
+m.Get("/hello/:b/name", helloHandler) // Would panic.
+<-m.Run(9000)
 ```
 
 ### License:

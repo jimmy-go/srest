@@ -79,7 +79,6 @@ func LoadViews(dirs string, funcMap template.FuncMap) error {
 	}
 
 	for _, name := range names {
-		// load template
 		templates[name] = template.Must(template.New(name).Funcs(funcMap).Parse(buf.String()))
 	}
 	DefaultFuncMap = funcMap

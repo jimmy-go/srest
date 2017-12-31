@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/signal"
 	"path"
+	"sort"
 	"syscall"
 
 	"github.com/bmizerany/pat"
@@ -35,8 +36,10 @@ type Options struct {
 
 // SREST type.
 type SREST struct {
-	Mux     *pat.PatternServeMux
-	Options *Options
+	Mux      *pat.PatternServeMux
+	Options  *Options
+	Map      map[string]bool
+	handlers []tmpHandler
 }
 
 // New returns a new server.
@@ -47,6 +50,7 @@ func New(options *Options) *SREST {
 	m := &SREST{
 		Mux:     pat.New(),
 		Options: options,
+		Map:     make(map[string]bool),
 	}
 	return m
 }
@@ -55,23 +59,30 @@ func New(options *Options) *SREST {
 // generate endpoints for `uri` and `uri/` because some pat unexpected behaviour.
 func (m *SREST) Get(uri string, hf http.Handler, mws ...func(http.Handler) http.Handler) {
 	s := path.Clean(uri)
-	m.Mux.Get(s, chainHandler(hf, mws...))
-	m.Mux.Get(s+"/", chainHandler(hf, mws...))
+	checkDuplicate(m, "GET", s)
+	h := chainHandler(hf, mws...)
+	m.handlers = append(m.handlers, tmpHandler{"GET", s, h})
+	if s != "/" {
+		m.handlers = append(m.handlers, tmpHandler{"GET", s + "/", h})
+	}
 }
 
 // Post wrapper register a POST endpoint with optional middlewares.
 func (m *SREST) Post(uri string, hf http.Handler, mws ...func(http.Handler) http.Handler) {
-	m.Mux.Post(path.Clean(uri), chainHandler(hf, mws...))
+	checkDuplicate(m, "POST", uri)
+	m.handlers = append(m.handlers, tmpHandler{"POST", path.Clean(uri), chainHandler(hf, mws...)})
 }
 
 // Put wrapper register a PUT endpoint with optional middlewares.
 func (m *SREST) Put(uri string, hf http.Handler, mws ...func(http.Handler) http.Handler) {
-	m.Mux.Put(path.Clean(uri), chainHandler(hf, mws...))
+	checkDuplicate(m, "PUT", uri)
+	m.handlers = append(m.handlers, tmpHandler{"PUT", path.Clean(uri), chainHandler(hf, mws...)})
 }
 
 // Del wrapper register a DELETE endpoint with optional middlewares.
 func (m *SREST) Del(uri string, hf http.Handler, mws ...func(http.Handler) http.Handler) {
-	m.Mux.Del(path.Clean(uri), chainHandler(hf, mws...))
+	checkDuplicate(m, "DELETE", uri)
+	m.handlers = append(m.handlers, tmpHandler{"DELETE", path.Clean(uri), chainHandler(hf, mws...)})
 }
 
 // Use receives a RESTfuler interface and generates endpoints for:
@@ -88,22 +99,46 @@ func (m *SREST) Use(uri string, n RESTfuler, mws ...func(http.Handler) http.Hand
 	m.Del(uri+"/:id", http.HandlerFunc(n.Delete), mws...)
 }
 
+// registerHandlers sorts and register the handlers on Mux. Erases the map and
+// slice from SREST in order to free memory. It's called once by Run method.
+func (m *SREST) registerHandlers() error {
+	// Sort handlers.
+	sort.Sort(ByURIDesc(m.handlers))
+
+	// Register pat endpoints.
+	if err := registerHandlers(m.Mux, m.handlers); err != nil {
+		return err
+	}
+	m.Map = nil
+	m.handlers = nil
+	return nil
+}
+
 // Run starts the server with http.ListenAndServe or http.ListenAndServeTLS
 // returns a channel binded it to SIGTERM and SIGINT signal.
 func (m *SREST) Run(port int) chan os.Signal {
+	if err := m.registerHandlers(); err != nil {
+		panic(fmt.Sprintf("Run : register handlers : err [%s]", err))
+	}
+
 	c := make(chan os.Signal)
 	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
-		addrs := fmt.Sprintf(":%v", port)
 		var err error
+		addrs := fmt.Sprintf(":%v", port)
 		if m.Options.UseTLS {
 			err = http.ListenAndServeTLS(addrs, m.Options.TLSCert, m.Options.TLSKey, m.Mux)
 		} else {
 			err = http.ListenAndServe(addrs, m.Mux)
 		}
 		if err != nil {
-			log.Printf("srest : Run : ListenAndServe : err [%s]", err)
+			log.Printf("srest : Run : err [%s]", err)
 		}
 	}()
 	return c
+}
+
+type tmpHandler struct {
+	Method, URI string
+	Handler     http.Handler
 }

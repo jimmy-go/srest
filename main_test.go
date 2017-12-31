@@ -56,7 +56,6 @@ func doTempViews() error {
 	if err != nil {
 		return err
 	}
-	log.Printf("TmpViews : tmp dir [%s]", tmpDir)
 
 	dirs := []struct {
 		Dir string
