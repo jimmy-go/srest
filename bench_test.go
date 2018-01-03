@@ -4,14 +4,22 @@ import (
 	"html/template"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func BenchmarkRender(b *testing.B) {
+	dir, err := getTempDir()
+	assert.Nil(b, err)
+
+	err = LoadViews(dir+"/a", DefaultFuncMap)
+	assert.Nil(b, err)
+
 	w := httptest.NewRecorder()
-	v := struct{}{}
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
+		v := struct{}{}
 		err := Render(w, "index.html", v)
 		if err != nil {
 			b.Fatal(err)

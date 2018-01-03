@@ -1,1 +1,8 @@
-coverage.out
+# Test files
+coverage.*
+bin
+_views
+_tmp_views
+
+# Vendor files
+vendor
