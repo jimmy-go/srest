@@ -10,7 +10,7 @@ if [ "$1" == "bench" ]; then
 fi
 
 if [ "$1" == "html" ]; then
-    go test -v -cover -coverprofile=coverage.out
+    go test -cover -coverprofile=coverage.out
     go tool cover -html=coverage.out -o coverage.html
     exit;
 fi
