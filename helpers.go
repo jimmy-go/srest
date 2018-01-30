@@ -13,7 +13,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/bmizerany/pat"
+	"github.com/gorilla/pat"
 )
 
 var (
@@ -81,14 +81,14 @@ func checkDuplicate(m *SREST, method, uri string) {
 	m.Map[s] = true
 }
 
-func removeVars(s string) string {
+func removeVars(uri string) string {
 	var res []string
-	ss := strings.Split(s, "/")
-	for _, x := range ss {
+	s := strings.Split(uri, "/")
+	for _, x := range s {
 		if strings.Contains(x, ":") {
 			x = "*"
 		}
-		res = append(res, x)
+		res = append(res, strings.TrimSpace(x))
 	}
 	return strings.Join(res, "/")
 }
@@ -100,20 +100,27 @@ func (a ByURIDesc) Len() int           { return len(a) }
 func (a ByURIDesc) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a ByURIDesc) Less(i, j int) bool { return removeVars(a[i].URI) > removeVars(a[j].URI) }
 
-func registerHandlers(mux *pat.PatternServeMux, hs []tmpHandler) error {
+func registerHandlers(mux *pat.Router, hs []tmpHandler) error {
 	for _, x := range hs {
 		switch x.Method {
-		case "GET":
-			mux.Get(x.URI, x.Handler)
-		case "POST":
-			mux.Post(x.URI, x.Handler)
-		case "PUT":
-			mux.Put(x.URI, x.Handler)
-		case "DELETE":
-			mux.Del(x.URI, x.Handler)
+		case "GET", "POST", "PUT", "DELETE":
+			mux.Add(x.Method, paramsToGorilla(x.URI), x.Handler)
 		default:
 			return fmt.Errorf("method not found: %s", x.Method)
 		}
 	}
 	return nil
+}
+
+// paramsToGorilla change old notation ':param' to '{param}'.
+func paramsToGorilla(uri string) string {
+	var res []string
+	s := strings.Split(uri, "/")
+	for _, x := range s {
+		if strings.Contains(x, ":") {
+			x = "{" + x[1:] + "}"
+		}
+		res = append(res, strings.TrimSpace(x))
+	}
+	return strings.Join(res, "/")
 }

@@ -27,9 +27,23 @@ func TestRemoveVars(t *testing.T) {
 		Purpose, S, X string
 	}{
 		{"1. OK", "/a/:b/c", "/a/*/c"},
+		{"2. OK: white spaces", "/a /:b/c", "/a/*/c"},
 	}
 	for _, x := range table {
 		actual := removeVars(x.S)
+		assert.EqualValues(t, x.X, actual, x.Purpose)
+	}
+}
+
+func TestParams2Gorilla(t *testing.T) {
+	table := []struct {
+		Purpose, S, X string
+	}{
+		{"1. OK", "/a/:b/c", "/a/{b}/c"},
+		{"2. OK: white spaces", "/a /:b/c", "/a/{b}/c"},
+	}
+	for _, x := range table {
+		actual := paramsToGorilla(x.S)
 		assert.EqualValues(t, x.X, actual, x.Purpose)
 	}
 }
