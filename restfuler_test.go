@@ -75,7 +75,7 @@ func TestRESTDuplicated(t *testing.T) {
 			default:
 				t.Fail()
 			}
-			m.Run(9000)
+			m.Run(9002)
 		}(x.Method, x.URI)
 	}
 }

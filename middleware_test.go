@@ -69,7 +69,7 @@ func TestMiddlewareHandlerFail(t *testing.T) {
 	m.handlers = append(m.handlers, tmpHandler{})
 	err := m.registerHandlers()
 	assert.NotNil(t, err)
-	m.Run(9000)
+	m.Run(9001)
 }
 
 func TestMiddleware(t *testing.T) {

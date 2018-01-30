@@ -15,7 +15,7 @@ import (
 	"sort"
 	"syscall"
 
-	"github.com/bmizerany/pat"
+	"github.com/gorilla/pat"
 )
 
 // RESTfuler interface.
@@ -36,7 +36,7 @@ type Options struct {
 
 // SREST type.
 type SREST struct {
-	Mux      *pat.PatternServeMux
+	Mux      *pat.Router
 	Options  *Options
 	Map      map[string]bool
 	handlers []tmpHandler
@@ -69,20 +69,35 @@ func (m *SREST) Get(uri string, hf http.Handler, mws ...func(http.Handler) http.
 
 // Post wrapper register a POST endpoint with optional middlewares.
 func (m *SREST) Post(uri string, hf http.Handler, mws ...func(http.Handler) http.Handler) {
-	checkDuplicate(m, "POST", uri)
-	m.handlers = append(m.handlers, tmpHandler{"POST", path.Clean(uri), chainHandler(hf, mws...)})
+	s := path.Clean(uri)
+	checkDuplicate(m, "POST", s)
+	h := chainHandler(hf, mws...)
+	m.handlers = append(m.handlers, tmpHandler{"POST", s, h})
+	if s != "/" {
+		m.handlers = append(m.handlers, tmpHandler{"POST", s + "/", h})
+	}
 }
 
 // Put wrapper register a PUT endpoint with optional middlewares.
 func (m *SREST) Put(uri string, hf http.Handler, mws ...func(http.Handler) http.Handler) {
-	checkDuplicate(m, "PUT", uri)
-	m.handlers = append(m.handlers, tmpHandler{"PUT", path.Clean(uri), chainHandler(hf, mws...)})
+	s := path.Clean(uri)
+	checkDuplicate(m, "PUT", s)
+	h := chainHandler(hf, mws...)
+	m.handlers = append(m.handlers, tmpHandler{"PUT", s, h})
+	if s != "/" {
+		m.handlers = append(m.handlers, tmpHandler{"PUT", s + "/", h})
+	}
 }
 
 // Del wrapper register a DELETE endpoint with optional middlewares.
 func (m *SREST) Del(uri string, hf http.Handler, mws ...func(http.Handler) http.Handler) {
-	checkDuplicate(m, "DELETE", uri)
-	m.handlers = append(m.handlers, tmpHandler{"DELETE", path.Clean(uri), chainHandler(hf, mws...)})
+	s := path.Clean(uri)
+	checkDuplicate(m, "DELETE", s)
+	h := chainHandler(hf, mws...)
+	m.handlers = append(m.handlers, tmpHandler{"DELETE", s, h})
+	if s != "/" {
+		m.handlers = append(m.handlers, tmpHandler{"DELETE", s + "/", h})
+	}
 }
 
 // Use receives a RESTfuler interface and generates endpoints for:
