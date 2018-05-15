@@ -1,8 +1,3 @@
-// Package srest contains tools for REST services and web sites.
-/*	Copyright 2016 The SREST Authors. All rights reserved.
-	Use of this source code is governed by a BSD-style
-	license that can be found in the LICENSE file.
-*/
 package srest
 
 import (
@@ -10,10 +5,11 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"net/url"
 	"path"
 	"strings"
 
-	"github.com/gorilla/pat"
+	"github.com/gorilla/mux"
 )
 
 var (
@@ -100,16 +96,43 @@ func (a ByURIDesc) Len() int           { return len(a) }
 func (a ByURIDesc) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a ByURIDesc) Less(i, j int) bool { return removeVars(a[i].URI) > removeVars(a[j].URI) }
 
-func registerHandlers(mux *pat.Router, hs []tmpHandler) error {
+func registerHandlers(r *mux.Router, hs []tmpHandler) error {
 	for _, x := range hs {
 		switch x.Method {
 		case "GET", "POST", "PUT", "DELETE":
-			mux.Add(x.Method, paramsToGorilla(x.URI), x.Handler)
+			uri := paramsToGorilla(x.URI)
+			h := varsWrap(x.Handler)
+			route := r.NewRoute()
+			route.Path(uri).Handler(h).Methods(x.Method)
 		default:
 			return fmt.Errorf("method not found: %s", x.Method)
 		}
 	}
 	return nil
+}
+
+func varsWrap(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		registerVars(r, vars)
+		h.ServeHTTP(w, r)
+	})
+}
+
+// registerVars adds the matched route variables to the URL query.
+// taken from: https://github.com/gorilla/pat/blob/master/pat.go#L95
+func registerVars(r *http.Request, vars map[string]string) {
+	parts, i := make([]string, len(vars)), 0
+	for key, value := range vars {
+		parts[i] = url.QueryEscape(":"+key) + "=" + url.QueryEscape(value)
+		i++
+	}
+	q := strings.Join(parts, "&")
+	if r.URL.RawQuery == "" {
+		r.URL.RawQuery = q
+	} else {
+		r.URL.RawQuery += "&" + q
+	}
 }
 
 // paramsToGorilla change old notation ':param' to '{param}'.

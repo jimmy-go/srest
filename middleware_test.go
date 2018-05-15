@@ -257,7 +257,5 @@ func TestMiddleware(t *testing.T) {
 			actual = string(b[:len(b)-1])
 		}
 		assert.EqualValues(t, x.ExpBody, actual, x.Purpose)
-
-		m.Run(x.Input.Port)
 	}
 }
