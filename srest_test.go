@@ -126,6 +126,7 @@ func TestRouterMatch(t *testing.T) {
 		m.Run(9001)
 		<-done
 	}()
+	<-time.After(time.Second)
 	table := []struct {
 		Purpose, Method, URL, Exp string
 	}{
