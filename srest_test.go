@@ -11,6 +11,7 @@ import (
 )
 
 func TestAutoSort(t *testing.T) {
+	done := make(chan struct{}, 1)
 	defer func() {
 		err := recover()
 		assert.EqualValues(t, nil, err)
@@ -41,7 +42,8 @@ func TestAutoSort(t *testing.T) {
 		m.Del("/me/:id", say("DELETE me detail"))
 		m.Del("/me/:id/name", say("DELETE me name"))
 
-		<-m.Run(9000)
+		m.Run(9000)
+		<-done
 	}()
 	<-time.After(time.Second)
 	table := []struct {
@@ -71,7 +73,6 @@ func TestAutoSort(t *testing.T) {
 		{"19. OK: delete detail", "DELETE", "http://localhost:9000/me/2", "DELETE me detail-%3Aid=2"},
 		{"20. OK: delete name", "DELETE", "http://localhost:9000/me/2/name", "DELETE me name-%3Aid=2"},
 	}
-
 	for i := range table {
 		x := table[i]
 		client := &http.Client{
@@ -81,6 +82,7 @@ func TestAutoSort(t *testing.T) {
 		assert.Nil(t, err, x.Purpose)
 		assert.EqualValues(t, x.Exp, actual, x.Purpose)
 	}
+	done <- struct{}{}
 }
 
 func say(message string) http.Handler {
@@ -113,4 +115,33 @@ func getBody(client *http.Client, method, uri string) (string, error) {
 		return "", err
 	}
 	return string(b[:len(b)-1]), nil
+}
+
+func TestRouterMatch(t *testing.T) {
+	done := make(chan struct{}, 1)
+	go func() {
+		m := New(nil)
+		m.Get("/me", say("GET home"))
+		m.Get("/me/:id", say("GET me detail"))
+		m.Run(9001)
+		<-done
+	}()
+	table := []struct {
+		Purpose, Method, URL, Exp string
+	}{
+		{"1. OK: get home", "GET", "http://localhost:9001/me", "GET home"},
+		{"2. OK: get name", "GET", "http://localhost:9001/me/2", "GET me detail-%3Aid=2"},
+		{"3. Fail: 404 for control", "GET", "http://localhost:9001/", "404 page not found"},
+		{"4. Fail: Must 404", "GET", "http://localhost:9001/me/2/name", "404 page not found"},
+	}
+	for i := range table {
+		x := table[i]
+		client := &http.Client{
+			Timeout: 100 * time.Millisecond,
+		}
+		actual, err := getBody(client, x.Method, x.URL)
+		assert.Nil(t, err, x.Purpose)
+		assert.EqualValues(t, x.Exp, actual, x.Purpose)
+	}
+	done <- struct{}{}
 }

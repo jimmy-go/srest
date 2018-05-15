@@ -1,8 +1,3 @@
-// Package srest contains tools for REST services and web sites.
-/*	Copyright 2016 The SREST Authors. All rights reserved.
-	Use of this source code is governed by a BSD-style
-	license that can be found in the LICENSE file.
-*/
 package srest
 
 import (
@@ -15,7 +10,7 @@ import (
 	"sort"
 	"syscall"
 
-	"github.com/gorilla/pat"
+	"github.com/gorilla/mux"
 )
 
 // RESTfuler interface.
@@ -36,7 +31,7 @@ type Options struct {
 
 // SREST type.
 type SREST struct {
-	Mux      *pat.Router
+	Mux      *mux.Router
 	Options  *Options
 	Map      map[string]bool
 	handlers []tmpHandler
@@ -48,7 +43,7 @@ func New(options *Options) *SREST {
 		options = &Options{}
 	}
 	m := &SREST{
-		Mux:     pat.New(),
+		Mux:     mux.NewRouter().StrictSlash(false).SkipClean(false),
 		Options: options,
 		Map:     make(map[string]bool),
 	}
@@ -136,7 +131,7 @@ func (m *SREST) Run(port int) chan os.Signal {
 		panic(fmt.Sprintf("Run : register handlers : err [%s]", err))
 	}
 
-	c := make(chan os.Signal)
+	c := make(chan os.Signal, 1)
 	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		var err error

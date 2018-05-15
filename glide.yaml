@@ -1,7 +1,6 @@
 package: github.com/jimmy-go/srest
 import:
-- package: github.com/gorilla/pat
-  version: v1.0
+- package: github.com/gorilla/mux
 - package: github.com/gorilla/schema
 testImport:
 - package: github.com/stretchr/testify
