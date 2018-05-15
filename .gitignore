@@ -3,6 +3,7 @@ coverage.*
 bin
 _views
 _tmp_views
+tmp_log
 
 # Vendor files
 vendor
